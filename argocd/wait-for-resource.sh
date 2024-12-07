@@ -46,6 +46,11 @@ wait-for-resource() {
       return 0
       ;;
 
+    AnalysisTemplate)
+      echo "Skipping waiting for Service"
+      return 0
+      ;;
+
     *)
       echo "Unknown resource to wait for: ${kind}"
       return 1
