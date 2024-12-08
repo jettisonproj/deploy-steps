@@ -10,7 +10,7 @@ set -o nounset
 set -o pipefail
 
 
-cd "$(dirname "$0")"
+cd "$(dirname "${0}")"
 source ./generate-github-installation-access-token.sh
 source ./wait-for-resource.sh
 source ./git-push.sh
@@ -21,31 +21,37 @@ source ./git-push.sh
 #
 
 # Url of the git repo to clone
-REPO_URL="$1"
+REPO_URL="${1}"
 
 # Branch of the git repo to clone
-REPO_BRANCH="$2"
+REPO_BRANCH="${2}"
 
 # GitHub App ID
-APP_ID="$3"
+APP_ID="${3}"
 
 # GitHub App User ID
-APP_USER_ID="$4"
+APP_USER_ID="${4}"
 
 # GitHub App User Name
-APP_USER_NAME="$5"
+APP_USER_NAME="${5}"
 
 # Path to the private key of the GitHub App
-KEY_PATH="$6"
+KEY_PATH="${6}"
 
 # GitHub Installation ID
-INSTALLATION_ID="$7"
+INSTALLATION_ID="${7}"
 
 # Path to the resource inside the repo. If a directory, runs all on files in directory
-RESOURCE_PATH="$8"
+RESOURCE_PATH="${8}"
 
 # New deployment image to substute in the specified resources
-NEW_IMAGE="$9"
+NEW_IMAGE="${9}"
+
+# New deployment image to substute in the specified resources
+NEW_IMAGE="${9}"
+
+# Whether the deploy step is approved. This should be set to 'YES'. Otherwise, the step exits with code 1
+DEPLOYMENT_APPROVED="${10}"
 
 echo "Deploying with parameters:"
 echo "  REPO_URL=${REPO_URL}"
@@ -57,6 +63,13 @@ echo "  KEY_PATH=${KEY_PATH}"
 echo "  INSTALLATION_ID=${INSTALLATION_ID}"
 echo "  RESOURCE_PATH=${RESOURCE_PATH}"
 echo "  NEW_IMAGE=${NEW_IMAGE}"
+echo "  DEPLOYMENT_APPROVED=${DEPLOYMENT_APPROVED}"
+
+# Exit with error if the deployment is not approved
+if [[ "${DEPLOYMENT_APPROVED}" != YES ]]; then
+  echo "Fail the deployment due to approval status: ${DEPLOYMENT_APPROVED}"
+  exit 1
+fi
 
 # Clone the repo
 echo "Cloning the repo"
