@@ -21,28 +21,24 @@ APP_ID="$1"
 # Path to the private key of the GitHub App
 KEY_PATH="$2"
 
-# GitHub Installation ID
-INSTALLATION_ID="$3"
-
 # The "org/name" portion of the repo url. e.g. "osoriano/deploy-steps"
-REPO_SHORT="$4"
+REPO_SHORT="$3"
 
 # Url to the Workflow UI
-DETAILS_URL="$5"
+DETAILS_URL="$4"
 
 # Event type. Used in the GitHub check description
-EVENT_TYPE="$6"
+EVENT_TYPE="$5"
 
 # The ID of the check run to complete
-CHECK_RUN_ID="$7"
+CHECK_RUN_ID="$6"
 
 # The completion status of the workflow
-WORKFLOW_STATUS="$8"
+WORKFLOW_STATUS="$7"
 
 echo "Deploying with parameters:"
 echo "  APP_ID=${APP_ID}"
 echo "  KEY_PATH=${KEY_PATH}"
-echo "  INSTALLATION_ID=${INSTALLATION_ID}"
 echo "  REPO_SHORT=${REPO_SHORT}"
 echo "  DETAILS_URL=${DETAILS_URL}"
 echo "  EVENT_TYPE=${EVENT_TYPE}"
@@ -51,7 +47,7 @@ echo "  WORKFLOW_STATUS=${WORKFLOW_STATUS}"
 
 # Fetch GitHub Access Token
 echo "Fetching GitHub Access Token"
-GH_ACCESS_TOKEN="$(generate-installation-access-token "${APP_ID}" "${KEY_PATH}" "${INSTALLATION_ID}")"
+GH_ACCESS_TOKEN="$(generate-installation-access-token "${APP_ID}" "${KEY_PATH}" "${REPO_SHORT}")"
 
 # Get final status
 echo "Determining final status"

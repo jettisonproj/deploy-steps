@@ -52,10 +52,27 @@ generate-jwt() {
 generate-installation-access-token() {
   local app_id="$1"
   local key_path="$2"
-  local installation_id="$3"
+  local repo_short="$3"
 
 
   JWT="$(generate-jwt "${app_id}" "${key_path}")"
+
+  installation_id="$(
+    curl \
+      --silent \
+      --show-error \
+      --fail \
+      --url "https://api.github.com/repos/${repo_short}/installation" \
+      --header "Accept: application/vnd.github+json" \
+      --header "Authorization: Bearer ${JWT}" \
+      --header "X-GitHub-Api-Version: 2022-11-28" \
+      | jq -re .id
+  )"
+
+  if [[ -z "${installation_id}" ]]; then
+    echo "No installation id found" 1>&2
+    return 1
+  fi
 
   curl \
     --silent \
@@ -66,5 +83,5 @@ generate-installation-access-token() {
     --header "Accept: application/vnd.github+json" \
     --header "Authorization: Bearer ${JWT}" \
     --header "X-GitHub-Api-Version: 2022-11-28" \
-    | jq -r .token
+    | jq -re .token
 }

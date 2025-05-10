@@ -38,20 +38,14 @@ APP_USER_NAME="${5}"
 # Path to the private key of the GitHub App
 KEY_PATH="${6}"
 
-# GitHub Installation ID
-INSTALLATION_ID="${7}"
-
 # Path to the resource inside the repo. If a directory, runs all on files in directory
-RESOURCE_PATH="${8}"
+RESOURCE_PATH="${7}"
 
 # New deployment image to substute in the specified resources
-NEW_IMAGE="${9}"
-
-# New deployment image to substute in the specified resources
-NEW_IMAGE="${9}"
+NEW_IMAGE="${8}"
 
 # Whether the deploy step is approved. This should be set to 'YES'. Otherwise, the step exits with code 1
-DEPLOYMENT_APPROVED="${10}"
+DEPLOYMENT_APPROVED="${9}"
 
 echo "Deploying with parameters:"
 echo "  REPO_URL=${REPO_URL}"
@@ -60,7 +54,6 @@ echo "  APP_ID=${APP_ID}"
 echo "  APP_USER_ID=${APP_USER_ID}"
 echo "  APP_USER_NAME=${APP_USER_NAME}"
 echo "  KEY_PATH=${KEY_PATH}"
-echo "  INSTALLATION_ID=${INSTALLATION_ID}"
 echo "  RESOURCE_PATH=${RESOURCE_PATH}"
 echo "  NEW_IMAGE=${NEW_IMAGE}"
 echo "  DEPLOYMENT_APPROVED=${DEPLOYMENT_APPROVED}"
@@ -80,7 +73,7 @@ cd /repo
 echo "Configuring git"
 git config user.name "${APP_USER_NAME}"
 git config user.email "${APP_USER_ID}+${APP_USER_NAME}@users.noreply.github.com"
-GH_ACCESS_TOKEN="$(generate-installation-access-token "${APP_ID}" "${KEY_PATH}" "${INSTALLATION_ID}")"
+GH_ACCESS_TOKEN="$(generate-installation-access-token "${APP_ID}" "${KEY_PATH}" "${NEW_IMAGE}")"
 git config user.password "${GH_ACCESS_TOKEN}"
 
 # Perform the subtitution
