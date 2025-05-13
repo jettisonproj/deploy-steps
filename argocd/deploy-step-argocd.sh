@@ -90,7 +90,7 @@ if [[ -d "${RESOURCE_PATH}" ]]; then
       file_ext=${resource_path_part##*.}
       if [[ "${file_ext}" == yaml || "${file_ext}" == yml || "${file_ext}" == json ]]; then
         echo "Substituting image version for: ${resource_path_part}"
-        sed --regexp-extended "s|${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${resource_path_part}"
+        sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${resource_path_part}"
         sed --regexp-extended "s|(app\\.kubernetes\\.io/version[\": ]+)[a-zA-Z0-9_.-]+|\\1${IMAGE_TAG}|g" -i "${resource_path_part}"
       else
         echo "Warning: unknown file extension ${file_ext}"
@@ -102,7 +102,7 @@ if [[ -d "${RESOURCE_PATH}" ]]; then
   done
 elif [[ -f "${RESOURCE_PATH}" ]]; then
   echo "Substituting image version for: ${RESOURCE_PATH}"
-  sed --regexp-extended "s|${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${RESOURCE_PATH}"
+  sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${RESOURCE_PATH}"
   sed --regexp-extended "s|(app\\.kubernetes\\.io/version[\": ]+)[a-zA-Z0-9_.-]+|\\1${IMAGE_TAG}|g" -i "${RESOURCE_PATH}"
 else
   echo "Resource path does not exist: ${RESOURCE_PATH}"
