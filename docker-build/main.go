@@ -21,6 +21,8 @@ const (
 	KANIKO_NAME = "executor"
 	// String written to the status-path when the image build is skipped
 	SKIPPED_STATUS = "Skipped"
+	// The standard ref prefix
+	REF_PREFIX = "refs/heads/"
 )
 
 var (
@@ -190,6 +192,9 @@ func handlePrCmd(cmd *cobra.Command, ards []string) error {
 	fmt.Printf("- dockerContextDir: %s\n", dockerContextDir)
 	fmt.Printf("- statusFile: %s\n", statusFile)
 
+	baseRevisionRef = getStandardRef(baseRevisionRef)
+	prRevisionRef = getStandardRef(prRevisionRef)
+
 	// Run command
 	// Initialize repo
 	initOptions := git.PlainInitOptions{
@@ -340,6 +345,8 @@ func handleCommitCmd(cmd *cobra.Command, ards []string) error {
 	fmt.Printf("- imageRepo: %s\n", imageRepo)
 	fmt.Printf("- dockerfileDir: %s\n", dockerfileDir)
 
+	revisionRef = getStandardRef(revisionRef)
+
 	// Run command
 	// Initialize repo
 	initOptions := git.PlainInitOptions{
@@ -473,17 +480,18 @@ func writeSkipStatus(statusFile string) error {
 }
 
 func buildPrImage(clonePath string, dockerfile string, dockerContextDir string) {
-	fmt.Println("Starting image build for PR")
-	err := syscall.Exec(
+	kanikoArgs := []string{
+		KANIKO_NAME,
+		fmt.Sprintf("--dockerfile=%s/%s", clonePath, dockerfile),
+		fmt.Sprintf("--context=dir://%s/%s", clonePath, dockerContextDir),
+		"--no-push",
+	}
+	fmt.Printf(
+		"Starting image build for PR using %s with args %s\n",
 		KANIKO_PATH,
-		[]string{
-			KANIKO_NAME,
-			fmt.Sprintf("--dockerfile=%s/%s", clonePath, dockerfile),
-			fmt.Sprintf("--context=dir://%s/%s", clonePath, dockerContextDir),
-			"--no-push",
-		},
-		os.Environ(),
+		kanikoArgs,
 	)
+	err := syscall.Exec(KANIKO_PATH, kanikoArgs, os.Environ())
 	if err != nil {
 		panic(err)
 	}
@@ -498,26 +506,36 @@ func buildCommitImage(
 	dockerfileDir string,
 	revisionHash string,
 ) {
-	fmt.Println("Starting image build for commit")
-	err := syscall.Exec(
+	kanikoArgs := []string{
+		KANIKO_NAME,
+		fmt.Sprintf("--dockerfile=%s/%s", clonePath, dockerfile),
+		fmt.Sprintf("--context=dir://%s/%s", clonePath, dockerContextDir),
+		fmt.Sprintf(
+			"--destination=%s%s%s:%s",
+			imageRegistry,
+			imageRepo,
+			dockerfileDir,
+			revisionHash,
+		),
+	}
+	fmt.Printf(
+		"Starting image build for commit using %s with args %s\n",
 		KANIKO_PATH,
-		[]string{
-			KANIKO_NAME,
-			fmt.Sprintf("--dockerfile=%s/%s", clonePath, dockerfile),
-			fmt.Sprintf("--context=dir://%s/%s", clonePath, dockerContextDir),
-			fmt.Sprintf(
-				"--destination=%s%s%s:%s",
-				imageRegistry,
-				imageRepo,
-				dockerfileDir,
-				revisionHash,
-			),
-		},
-		os.Environ(),
+		kanikoArgs,
 	)
+	err := syscall.Exec(KANIKO_PATH, kanikoArgs, os.Environ())
 	if err != nil {
 		panic(err)
 	}
+}
+
+func getStandardRef(ref string) string {
+	if strings.HasPrefix(ref, REF_PREFIX) {
+		return ref
+	}
+	standardRef := fmt.Sprintf("%s%s", REF_PREFIX, ref)
+	fmt.Printf("Using standard ref: %s -> %s\n", ref, standardRef)
+	return standardRef
 }
 
 func main() {
