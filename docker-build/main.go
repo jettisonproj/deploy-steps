@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -279,7 +280,8 @@ func isBuildSkipped(statusFile string) (bool, error) {
 		}
 		return false, err
 	}
-	return string(bytes) == SKIPPED_STATUS, nil
+	skippedStatus := strings.TrimSpace(string(bytes))
+	return skippedStatus == SKIPPED_STATUS, nil
 }
 
 func main() {
