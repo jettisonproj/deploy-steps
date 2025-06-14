@@ -1,0 +1,33 @@
+on:
+  pull_request:
+    paths:
+      - 'docker-build-diff-check/**'
+env:
+  # Use ghcr, in addition to Docker Hub
+  GH_REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-docker-build-diff-check
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check Out Repo
+        uses: actions/checkout@v4
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }},${{ env.GH_REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=pr
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: docker-build-diff-check
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ github.sha }}
