@@ -56,6 +56,7 @@ git reset --hard FETCH_HEAD
 echo "Checking for relevant diffs"
 if [[ -z "${DOCKER_CONTEXT_DIR}" ]]; then
   echo "Using empty docker context dir. Exiting early"
+  echo "Succeeded" > "${STATUS_FILE}"
   exit 0
 fi
 
@@ -69,6 +70,7 @@ git diff-tree --name-only --no-commit-id -r "${REVISION_HASH}" \
 echo "Checking for diff in docker file"
 if grep --fixed-strings --line-regexp "${DOCKERFILE}" "${CHANGED_FILES}"; then
   echo "Found changes in dockerfile. Exiting early"
+  echo "Succeeded" > "${STATUS_FILE}"
   exit 0
 fi
 
@@ -83,6 +85,7 @@ if cut -c "-${#DOCKER_CONTEXT_DIR}" "${CHANGED_FILES}" \
   | grep --fixed-strings --line-regexp "${DOCKER_CONTEXT_DIR}" "${CHANGED_FILES}"
 then
   echo "Found changes in docker context dir. Exiting early"
+  echo "Succeeded" > "${STATUS_FILE}"
   exit 0
 fi
 
