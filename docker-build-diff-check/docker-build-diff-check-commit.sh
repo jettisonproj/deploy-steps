@@ -119,7 +119,7 @@ if [[ "${TRAILING_SLASH}" != / ]]; then
 fi
 
 if cut -c "-${#DOCKER_CONTEXT_DIR}" "${CHANGED_FILES}" \
-  | grep --fixed-strings --line-regexp "${DOCKER_CONTEXT_DIR}" "${CHANGED_FILES}"
+  | grep --fixed-strings --line-regexp "${DOCKER_CONTEXT_DIR}"
 then
   echo "Found changes in docker context dir"
   copy_override_files
