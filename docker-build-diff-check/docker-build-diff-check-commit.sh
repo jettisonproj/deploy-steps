@@ -71,7 +71,7 @@ copy_override_files() {
     return 0
   fi
 
-  find "${REPO_OVERRIDE_DIR}" -type f -print0 | while IFS= read -r -d $'\0' repo_override_file; do
+  find -L "${REPO_OVERRIDE_DIR}" -type f -print0 | while IFS= read -r -d $'\0' repo_override_file; do
     relative_override_file="${repo_override_file:${#REPO_OVERRIDE_DIR}}"
     clone_override_file="${CLONE_PATH}${relative_override_file}"
 
