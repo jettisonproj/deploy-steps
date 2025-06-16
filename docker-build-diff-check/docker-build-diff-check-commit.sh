@@ -1,7 +1,10 @@
 #!/bin/bash
 #
-# Clone the specified commit to prepare for a docker build.
-# Adds a status file with "Skipped" if no relevant files changed.
+# Clone the specified commit to prepare for a docker build
+#
+# Additionally:
+# - Adds a status file with "Skipped" if no relevant files changed
+# - Adds override files to the clone directory after cloning
 #
 set -o errexit
 set -o nounset
@@ -34,6 +37,10 @@ DOCKER_CONTEXT_DIR="$6"
 # build was performed and can be accessed if the execution was successful
 STATUS_FILE="$7"
 
+# After cloning, add the override files from this directory
+# to the clone directory
+REPO_OVERRIDE_DIR="$8"
+
 echo "$0 with parameters:"
 echo "- REPO=${REPO}"
 echo "- CLONE_PATH=${CLONE_PATH}"
@@ -42,6 +49,7 @@ echo "- REVISION_REF=${REVISION_REF}"
 echo "- DOCKERFILE=${DOCKERFILE}"
 echo "- DOCKER_CONTEXT_DIR=${DOCKER_CONTEXT_DIR}"
 echo "- STATUS_FILE=${STATUS_FILE}"
+echo "- REPO_OVERRIDE_DIR=${REPO_OVERRIDE_DIR}"
 
 echo "Changing to clone path"
 mkdir -p "${CLONE_PATH}"
@@ -53,9 +61,37 @@ git remote add origin "${REPO}"
 git fetch origin --depth 2 --no-tags "${REVISION_HASH}"
 git reset --hard FETCH_HEAD
 
+# Copies the files mounted into the REPO_OVERRIDE_DIR
+# to the clone dir
+copy_override_files() {
+  echo "Adding files from override dir to clone dir"
+
+  if [[ ! -d "${REPO_OVERRIDE_DIR}" ]]; then
+    echo "Skipping override files. No override dir exists"
+    return 0
+  fi
+
+  find "${REPO_OVERRIDE_DIR}" -type f -print0 | while IFS= read -r -d $'\0' repo_override_file; do
+    relative_override_file="${repo_override_file:${#REPO_OVERRIDE_DIR}}"
+    clone_override_file="${CLONE_PATH}${relative_override_file}"
+
+    relative_override_dir="$(dirname "${relative_override_file}")"
+    clone_override_dir="${CLONE_PATH}${relative_override_dir}"
+
+    echo "${repo_override_file} -> ${clone_override_file}"
+
+    mkdir -p "${clone_override_dir}"
+    cp "${repo_override_file}" "${clone_override_file}"
+
+  done
+
+  echo "Finished adding override files"
+}
+
 echo "Checking for relevant diffs"
 if [[ -z "${DOCKER_CONTEXT_DIR}" ]]; then
-  echo "Using empty docker context dir. Exiting early"
+  echo "Using empty docker context dir"
+  copy_override_files
   echo "Succeeded" > "${STATUS_FILE}"
   exit 0
 fi
@@ -69,7 +105,8 @@ git diff-tree --name-only --no-commit-id -r "${REVISION_HASH}" \
 
 echo "Checking for diff in docker file"
 if grep --fixed-strings --line-regexp "${DOCKERFILE}" "${CHANGED_FILES}"; then
-  echo "Found changes in dockerfile. Exiting early"
+  echo "Found changes in dockerfile"
+  copy_override_files
   echo "Succeeded" > "${STATUS_FILE}"
   exit 0
 fi
@@ -84,7 +121,8 @@ fi
 if cut -c "-${#DOCKER_CONTEXT_DIR}" "${CHANGED_FILES}" \
   | grep --fixed-strings --line-regexp "${DOCKER_CONTEXT_DIR}" "${CHANGED_FILES}"
 then
-  echo "Found changes in docker context dir. Exiting early"
+  echo "Found changes in docker context dir"
+  copy_override_files
   echo "Succeeded" > "${STATUS_FILE}"
   exit 0
 fi
