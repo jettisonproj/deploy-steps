@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 
@@ -244,7 +245,7 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 	fmt.Println("Continuing build")
 
 	// Build the commit image
-	kanikoArgs := []string{
+	buildImgArgs := []string{
 		KANIKO_NAME,
 		fmt.Sprintf("--dockerfile=%s/%s", clonePath, dockerfile),
 		fmt.Sprintf("--context=dir://%s/%s", clonePath, dockerContextDir),
@@ -255,13 +256,52 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 			dockerfileDir,
 			revisionHash,
 		),
+		"--cache",
+		"--cache-run-layers",
+		"--cache-copy-layers",
+		"--cleanup",
 	}
 	fmt.Printf(
 		"Starting image build for commit using %s with args %s\n",
 		KANIKO_PATH,
-		kanikoArgs,
+		buildImgArgs,
 	)
-	err = syscall.Exec(KANIKO_PATH, kanikoArgs, os.Environ())
+
+	buildImgCmd := exec.Cmd{
+		Path:   KANIKO_PATH,
+		Args:   buildImgArgs,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+	err = buildImgCmd.Run()
+	if err != nil {
+		return fmt.Errorf("Image build for commit failed: %s", err)
+	}
+
+	// Build the commit integration test image
+	buildTestImgArgs := []string{
+		KANIKO_NAME,
+		fmt.Sprintf("--dockerfile=%s/%s", clonePath, dockerfile),
+		fmt.Sprintf("--context=dir://%s/%s", clonePath, dockerContextDir),
+		fmt.Sprintf(
+			"--destination=%s%s%s-integration-test:%s",
+			imageRegistry,
+			imageRepo,
+			dockerfileDir,
+			revisionHash,
+		),
+		"--target=integration-test",
+		"--cache",
+		"--cache-run-layers",
+		"--cache-copy-layers",
+	}
+	fmt.Printf(
+		"Starting integration test image build for commit using %s with args %s\n",
+		KANIKO_PATH,
+		buildTestImgArgs,
+	)
+
+	err = syscall.Exec(KANIKO_PATH, buildTestImgArgs, os.Environ())
 	if err != nil {
 		panic(err)
 	}
