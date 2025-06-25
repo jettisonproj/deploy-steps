@@ -256,9 +256,6 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 			dockerfileDir,
 			revisionHash,
 		),
-		"--cache",
-		"--cache-run-layers",
-		"--cache-copy-layers",
 		"--cleanup",
 	}
 	fmt.Printf(
@@ -291,9 +288,6 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 			revisionHash,
 		),
 		"--target=integration-test",
-		"--cache",
-		"--cache-run-layers",
-		"--cache-copy-layers",
 	}
 	fmt.Printf(
 		"Starting integration test image build for commit using %s with args %s\n",
