@@ -70,8 +70,8 @@ echo "Completing GitHub Status Check"
 STATUS_CHECK_DATA='{
   "conclusion": "'"${CONCLUSION}"'",
   "output": {
-    "title": "Argo Workflow '"${EVENT_TYPE}"' Build for CI/CD",
-    "summary": "The '"${EVENT_TYPE}"' build completed with status **'"${WORKFLOW_STATUS}"'**. See the [Argo workflow link]('"${DETAILS_URL}"') for more details"
+    "title": "Jettison '"${EVENT_TYPE}"' Flow for CI/CD",
+    "summary": "The '"${EVENT_TYPE}"' flow completed with status **'"${WORKFLOW_STATUS}"'**. See the [Argo workflow link]('"${DETAILS_URL}"') for more details"
   }
 }'
 

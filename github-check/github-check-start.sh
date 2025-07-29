@@ -51,13 +51,13 @@ GH_ACCESS_TOKEN="$(generate-installation-access-token "${APP_ID}" "${KEY_PATH}" 
 
 echo "Starting GitHub Status Check"
 STATUS_CHECK_DATA='{
-  "name": "Argo Workflow '"${EVENT_TYPE}"' Build",
+  "name": "Jettison '"${EVENT_TYPE}"' Flow",
   "head_sha": "'"${HEAD_SHA}"'",
   "details_url": "'"${DETAILS_URL}"'",
   "status": "in_progress",
   "output":{
-    "title": "Argo Workflow '"${EVENT_TYPE}"' Build for CI/CD",
-    "summary": "Runs the '"${EVENT_TYPE}"' build in an Argo workflow. See the [workflow link]('"${DETAILS_URL}"') for more details"
+    "title": "Jettison '"${EVENT_TYPE}"' Flow for CI/CD",
+    "summary": "Runs the '"${EVENT_TYPE}"' flow in an Argo workflow. See the [workflow link]('"${DETAILS_URL}"') for more details"
   }
 }'
 
