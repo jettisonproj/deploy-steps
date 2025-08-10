@@ -3,7 +3,8 @@
 # Update a Kubernetes resource by pushing to a git repo.
 # ArgoCD is expected to synchronize with the git repo.
 #
-# Then, this script will wait for the deployment to complete
+# Then, this script will perform a sync of the ArgoCD application
+# and wait for the deployment to complete
 #
 set -o errexit
 set -o nounset
@@ -128,6 +129,15 @@ ${IMAGE_TAG}"
 NEW_REPO_URL="${REPO_URL/github.com/${APP_USER_NAME}:${GH_ACCESS_TOKEN}@github.com}"
 git remote set-url origin "${NEW_REPO_URL}"
 git-push "${REPO_BRANCH}"
+
+#
+# Sync the ArgoCD application
+#
+# Switch to argocd namespace context until an argocd flag is supported. See:
+# https://github.com/argoproj/argo-cd/issues/9123
+# todo get application namespace name
+kubectl config set-context --current --namespace=argocd
+argocd app sync rollouts-demo-dev --loglevel debug --core
 
 # Wait for the resource to be available
 echo "Waiting for resources"
