@@ -1,3 +1,8 @@
+# Skip integration test for deploy steps
+# Instead, it should be covered by the caller
+FROM scratch as integration-test
+
+# Build the image for the deploy step
 FROM ubuntu:24.04
 RUN apt-get update && \
   apt-get -y install curl git jq && \
