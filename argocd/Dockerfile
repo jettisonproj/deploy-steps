@@ -10,11 +10,7 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists /var/cache/apt/archives && \
   curl -LsSfO "https://dl.k8s.io/release/$(curl -LsSf https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
   chmod +x ./kubectl && \
-  mv kubectl /usr/local/bin && \
-  ARGOCD_CLI_VERSION=$(curl -LsSf https://raw.githubusercontent.com/argoproj/argo-cd/stable/VERSION) && \
-  curl -LsSf -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/download/v$ARGOCD_CLI_VERSION/argocd-linux-amd64 && \
-  install -m 555 argocd-linux-amd64 /usr/local/bin/argocd && \
-  rm argocd-linux-amd64
+  mv kubectl /usr/local/bin
 
 WORKDIR /root
 
