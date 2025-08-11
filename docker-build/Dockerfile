@@ -1,3 +1,7 @@
+# Skip integration test for deploy steps
+# Instead, it should be covered by the caller
+FROM scratch as integration-test
+
 # Build the docker-build binary
 FROM golang:1.24 AS builder
 
