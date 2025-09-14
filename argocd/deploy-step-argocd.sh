@@ -1,9 +1,9 @@
 #!/bin/bash
 #
 # Update a Kubernetes resource by pushing to a git repo.
-# ArgoCD is expected to synchronize with the git repo.
 #
-# Then, this script will wait for the deployment to complete
+# Then, this script will sync the application with ArgoCD
+# and wait for the deployment to complete
 #
 set -o errexit
 set -o nounset
@@ -53,6 +53,12 @@ IMAGE_TAG="${10}"
 # The image repository suffix
 IMAGE_REPO_SUFFIX="${11}"
 
+# The ArgoCD app namespace
+ARGOCD_APP_NAMESPACE="${12}"
+
+# The ArgoCD app name
+ARGOCD_APP_NAME="${13}"
+
 echo "Deploying with parameters:"
 echo "  REPO_URL=${REPO_URL}"
 echo "  REPO_BRANCH=${REPO_BRANCH}"
@@ -65,6 +71,8 @@ echo "  IMAGE_REGISTRY=${IMAGE_REGISTRY}"
 echo "  IMAGE_REPO_PREFIX=${IMAGE_REPO_PREFIX}"
 echo "  IMAGE_TAG=${IMAGE_TAG}"
 echo "  IMAGE_REPO_SUFFIX=${IMAGE_REPO_SUFFIX}"
+echo "  ARGOCD_APP_NAMESPACE=${ARGOCD_APP_NAMESPACE}"
+echo "  ARGOCD_APP_NAME=${ARGOCD_APP_NAME}"
 
 FULL_IMAGE_NAME="${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:${IMAGE_TAG}"
 FULL_TEST_IMAGE_NAME="${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}-integration-test:${IMAGE_TAG}"
@@ -128,6 +136,15 @@ ${IMAGE_TAG}"
 NEW_REPO_URL="${REPO_URL/github.com/${APP_USER_NAME}:${GH_ACCESS_TOKEN}@github.com}"
 git remote set-url origin "${NEW_REPO_URL}"
 git-push "${REPO_BRANCH}"
+
+# Sync the ArgoCD application
+echo "Syncing the ArgoCD application"
+curl \
+  --silent \
+  --show-error \
+  --fail \
+  --request POST \
+  "http://jettison-api-service.jettisonproj/api/v1/namespaces/${ARGOCD_APP_NAMESPACE}/applications/${ARGOCD_APP_NAME}/sync"
 
 # Wait for the resource to be available
 echo "Waiting for resources"
