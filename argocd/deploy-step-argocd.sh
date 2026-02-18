@@ -144,7 +144,7 @@ curl \
   --show-error \
   --fail \
   --request POST \
-  "http://jettison-api-service.jettisonproj/api/v1/namespaces/${ARGOCD_APP_NAMESPACE}/applications/${ARGOCD_APP_NAME}/sync"
+  "http://jettison-api-service.jettisonproj:2846/api/v1/namespaces/${ARGOCD_APP_NAMESPACE}/applications/${ARGOCD_APP_NAME}/sync"
 
 # Wait for the resource to be available
 echo "Waiting for resources"
