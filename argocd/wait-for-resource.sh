@@ -7,6 +7,9 @@ set -o pipefail
 #
 # Wait for the resource to be available
 #
+# NOTE: Ensure the client (e.g. deploy-step-executor) has read access
+# to these resources (namespaced and cluster resources)
+#
 wait-for-resource() {
   local resource_path="$1"
   local new_tag="$2"
@@ -73,6 +76,11 @@ wait-for-resource() {
 
     ClusterRoleBinding)
       echo "Skipping waiting for ClusterRoleBinding"
+      return 0
+      ;;
+
+    HTTPRoute)
+      echo "Skipping waiting for HTTPRoute"
       return 0
       ;;
 
