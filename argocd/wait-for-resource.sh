@@ -47,7 +47,32 @@ wait-for-resource() {
       ;;
 
     AnalysisTemplate)
-      echo "Skipping waiting for Service"
+      echo "Skipping waiting for AnalysisTemplate"
+      return 0
+      ;;
+
+    ServiceAccount)
+      echo "Skipping waiting for ServiceAccount"
+      return 0
+      ;;
+
+    RoleBinding)
+      echo "Skipping waiting for RoleBinding"
+      return 0
+      ;;
+
+    Role)
+      echo "Skipping waiting for Role"
+      return 0
+      ;;
+
+    ClusterRole)
+      echo "Skipping waiting for ClusterRole"
+      return 0
+      ;;
+
+    ClusterRoleBinding)
+      echo "Skipping waiting for ClusterRoleBinding"
       return 0
       ;;
 
