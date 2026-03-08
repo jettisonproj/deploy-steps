@@ -26,6 +26,7 @@ wait-for-resource() {
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.updatedReplicas}=${num_replicas}"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.readyReplicas}=${num_replicas}"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.availableReplicas}=${num_replicas}"
+      kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.phase}=Healthy"
       echo "Rollout completed"
       return 0
       ;;
