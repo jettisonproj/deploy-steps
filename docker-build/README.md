@@ -1,6 +1,12 @@
 # docker-build
 
-This builds a docker image using Buildkit. For PRs, all layers are built.
-For commits, all layers are built and pushed.
+Builds a docker image using BuildKit. For PRs and commits, the build targets are:
 
-Also checks a provided status file to skip the build if specified.
+- `test-results` - This includes running the tests in docker and capturing the artifacts
+- `integration-test` - Verifies the test results and is capable of testing against other environments
+- The final target - The application image target
+
+Additionally:
+
+- Checks a provided status file to skip the build if specified.
+- For commits, the final and `integration-test` targets are pushed

@@ -1,14 +1,16 @@
 package main
 
 import (
+	"archive/tar"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -21,6 +23,12 @@ const (
 	BUILDCTL_NAME = "buildctl-daemonless.sh"
 	// String written to the status-path when the image build is skipped
 	SKIPPED_STATUS = "Skipped"
+	// Name of output tar file for the test result artifacts
+	ARTIFACTS_TAR_NAME = "artifacts.tar"
+	// Name of the target which runs tests and optionally generates artifacts
+	TEST_RESULTS_TARGET = "test-results"
+	// Name of the target for the integration test image
+	TEST_TARGET = "integration-test"
 )
 
 var (
@@ -66,6 +74,12 @@ func configureCmds() {
 			"no image build is performed and the command exits successfully")
 	prCmd.MarkFlagRequired("status-file")
 
+	prFlags.String(
+		"artifacts-dir",
+		"",
+		fmt.Sprintf("The directory to place the snapshot of the %s build target", TEST_RESULTS_TARGET))
+	prCmd.MarkFlagRequired("artifacts-dir")
+
 	commitFlags := commitCmd.Flags()
 
 	commitFlags.String("clone-path", "", "the path to the cloned repo")
@@ -104,6 +118,12 @@ func configureCmds() {
 			"no image build is performed and the command exits successfully")
 	commitCmd.MarkFlagRequired("status-file")
 
+	commitFlags.String(
+		"artifacts-dir",
+		"",
+		fmt.Sprintf("The directory to place the snapshot of the %s build target", TEST_RESULTS_TARGET))
+	commitCmd.MarkFlagRequired("artifacts-dir")
+
 	mainCmd.AddCommand(prCmd, commitCmd)
 }
 
@@ -135,12 +155,18 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error processing pr status-file flag")
 	}
 
+	artifactsDir, err := prFlags.GetString("artifacts-dir")
+	if err != nil {
+		return fmt.Errorf("error processing pr artifacts-dir flag")
+	}
+
 	// Print command flags
 	fmt.Printf("PR build with params:\n")
 	fmt.Printf("- clonePath: %s\n", clonePath)
 	fmt.Printf("- dockerfile: %s\n", dockerfile)
 	fmt.Printf("- dockerContextDir: %s\n", dockerContextDir)
 	fmt.Printf("- statusFile: %s\n", statusFile)
+	fmt.Printf("- artifactsDir: %s\n", artifactsDir)
 
 	// Check status file and skip build if necessary
 	skipped, err := isBuildSkipped(statusFile)
@@ -155,8 +181,7 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 
 	dockerfileDirPath, dockerfileName := filepath.Split(dockerfile)
 
-	// Build the PR image
-	buildctlArgs := []string{
+	baseBuildArgs := []string{
 		BUILDCTL_NAME,
 		"build",
 		"--frontend",
@@ -172,17 +197,81 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		"--progress",
 		"plain",
 	}
+
+	// Build the pr test results image
+	buildTestResultsImgArgs := slices.Concat(baseBuildArgs, []string{
+		"--opt",
+		fmt.Sprintf("target=%s", TEST_RESULTS_TARGET),
+		"--output",
+		fmt.Sprintf("type=tar,dest=%s/%s", artifactsDir, ARTIFACTS_TAR_NAME),
+	})
+
+	fmt.Printf(
+		"Starting test results image build for pr using %s with args %s\n",
+		BUILDCTL_PATH,
+		buildTestResultsImgArgs,
+	)
+
+	buildTestResultsImgCmd := exec.Cmd{
+		Path:   BUILDCTL_PATH,
+		Args:   buildTestResultsImgArgs,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+	err = buildTestResultsImgCmd.Run()
+	if err != nil {
+		return fmt.Errorf("Test results image build for pr failed: %s", err)
+	}
+
+	// Extract pr test result artifacts
+	err = untar(fmt.Sprintf("%s/%s", artifactsDir, ARTIFACTS_TAR_NAME), artifactsDir)
+	if err != nil {
+		return fmt.Errorf("Failed to extract pr test result artifacts: %s", err)
+	}
+
+	// Build the pr integration test image
+	buildTestImgArgs := slices.Concat(baseBuildArgs, []string{
+		"--opt",
+		fmt.Sprintf("target=%s", TEST_TARGET),
+	})
+
+	fmt.Printf(
+		"Starting integration test image build for pr using %s with args %s\n",
+		BUILDCTL_PATH,
+		buildTestImgArgs,
+	)
+
+	buildTestImgCmd := exec.Cmd{
+		Path:   BUILDCTL_PATH,
+		Args:   buildTestImgArgs,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+	err = buildTestImgCmd.Run()
+	if err != nil {
+		return fmt.Errorf("Test image build for pr failed: %s", err)
+	}
+
+	// Build the PR image
 	fmt.Printf(
 		"Starting image build for PR using %s with args %s\n",
 		BUILDCTL_PATH,
-		buildctlArgs,
+		baseBuildArgs,
 	)
-	err = syscall.Exec(BUILDCTL_PATH, buildctlArgs, os.Environ())
+
+	buildImgCmd := exec.Cmd{
+		Path:   BUILDCTL_PATH,
+		Args:   baseBuildArgs,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+	err = buildImgCmd.Run()
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("Image build for pr failed: %s", err)
 	}
 
 	return nil
+
 }
 
 func handleCommitCmd(cmd *cobra.Command, args []string) error {
@@ -234,6 +323,11 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error processing commit dockerfile-dir flag")
 	}
 
+	artifactsDir, err := commitFlags.GetString("artifacts-dir")
+	if err != nil {
+		return fmt.Errorf("error processing commit artifacts-dir flag")
+	}
+
 	// Print command flags
 	fmt.Printf("Commmit build with params:\n")
 	fmt.Printf("- clonePath: %s\n", clonePath)
@@ -245,6 +339,7 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 	fmt.Printf("- imageRegistry: %s\n", imageRegistry)
 	fmt.Printf("- imageRepo: %s\n", imageRepo)
 	fmt.Printf("- dockerfileDir: %s\n", dockerfileDir)
+	fmt.Printf("- artifactsDir: %s\n", artifactsDir)
 
 	// Check status file and skip build if necessary
 	skipped, err := isBuildSkipped(statusFile)
@@ -259,8 +354,7 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 
 	dockerfileDirPath, dockerfileName := filepath.Split(dockerfile)
 
-	// Build the commit image
-	buildImgArgs := []string{
+	baseBuildArgs := []string{
 		BUILDCTL_NAME,
 		"build",
 		"--frontend",
@@ -273,6 +367,75 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		fmt.Sprintf("context=%s/%s", clonePath, dockerContextDir),
 		"--local",
 		fmt.Sprintf("dockerfile=%s/%s", clonePath, dockerfileDirPath),
+		"--progress",
+		"plain",
+	}
+
+	// Build the commit test results image
+	buildTestResultsImgArgs := slices.Concat(baseBuildArgs, []string{
+		"--opt",
+		fmt.Sprintf("target=%s", TEST_RESULTS_TARGET),
+		"--output",
+		fmt.Sprintf("type=tar,dest=%s/%s", artifactsDir, ARTIFACTS_TAR_NAME),
+	})
+
+	fmt.Printf(
+		"Starting test results image build for commit using %s with args %s\n",
+		BUILDCTL_PATH,
+		buildTestResultsImgArgs,
+	)
+
+	buildTestResultsImgCmd := exec.Cmd{
+		Path:   BUILDCTL_PATH,
+		Args:   buildTestResultsImgArgs,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+	err = buildTestResultsImgCmd.Run()
+	if err != nil {
+		return fmt.Errorf("Test results image build for commit failed: %s", err)
+	}
+
+	// Extract commit test result artifacts
+	err = untar(fmt.Sprintf("%s/%s", artifactsDir, ARTIFACTS_TAR_NAME), artifactsDir)
+	if err != nil {
+		return fmt.Errorf("Failed to extract commit test result artifacts: %s", err)
+	}
+
+	// Build the commit integration test image
+	buildTestImgArgs := slices.Concat(baseBuildArgs, []string{
+		"--opt",
+		fmt.Sprintf("target=%s", TEST_TARGET),
+		"--output",
+		fmt.Sprintf(
+			"type=image,name=%s%s%s-%s:%s,push=true",
+			imageRegistry,
+			imageRepo,
+			dockerfileDir,
+			TEST_TARGET,
+			revisionHash,
+		),
+	})
+
+	fmt.Printf(
+		"Starting integration test image build for commit using %s with args %s\n",
+		BUILDCTL_PATH,
+		buildTestImgArgs,
+	)
+
+	buildTestImgCmd := exec.Cmd{
+		Path:   BUILDCTL_PATH,
+		Args:   buildTestImgArgs,
+		Stdout: os.Stdout,
+		Stderr: os.Stderr,
+	}
+	err = buildTestImgCmd.Run()
+	if err != nil {
+		return fmt.Errorf("Test image build for commit failed: %s", err)
+	}
+
+	// Build the commit image
+	buildImgArgs := slices.Concat(baseBuildArgs, []string{
 		"--output",
 		fmt.Sprintf(
 			"type=image,name=%s%s%s:%s,push=true",
@@ -281,9 +444,8 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 			dockerfileDir,
 			revisionHash,
 		),
-		"--progress",
-		"plain",
-	}
+	})
+
 	fmt.Printf(
 		"Starting image build for commit using %s with args %s\n",
 		BUILDCTL_PATH,
@@ -299,44 +461,6 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 	err = buildImgCmd.Run()
 	if err != nil {
 		return fmt.Errorf("Image build for commit failed: %s", err)
-	}
-
-	// Build the commit integration test image
-	buildTestImgArgs := []string{
-		BUILDCTL_NAME,
-		"build",
-		"--frontend",
-		"gateway.v0",
-		"--opt",
-		"source=docker/dockerfile:1",
-		"--opt",
-		fmt.Sprintf("filename=%s", dockerfileName),
-		"--opt",
-		"target=integration-test",
-		"--local",
-		fmt.Sprintf("context=%s/%s", clonePath, dockerContextDir),
-		"--local",
-		fmt.Sprintf("dockerfile=%s/%s", clonePath, dockerfileDirPath),
-		"--output",
-		fmt.Sprintf(
-			"type=image,name=%s%s%s-integration-test:%s,push=true",
-			imageRegistry,
-			imageRepo,
-			dockerfileDir,
-			revisionHash,
-		),
-		"--progress",
-		"plain",
-	}
-	fmt.Printf(
-		"Starting integration test image build for commit using %s with args %s\n",
-		BUILDCTL_PATH,
-		buildTestImgArgs,
-	)
-
-	err = syscall.Exec(BUILDCTL_PATH, buildTestImgArgs, os.Environ())
-	if err != nil {
-		panic(err)
 	}
 
 	return nil
@@ -355,6 +479,59 @@ func isBuildSkipped(statusFile string) (bool, error) {
 	}
 	skippedStatus := strings.TrimSpace(string(bytes))
 	return skippedStatus == SKIPPED_STATUS, nil
+}
+
+func untar(tarPath string, targetDir string) error {
+	file, err := os.Open(tarPath)
+	if err != nil {
+		return fmt.Errorf("Failed to open tar file %s: %s", tarPath, err)
+	}
+	defer file.Close()
+
+	tarReader := tar.NewReader(file)
+
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			return nil
+		}
+
+		if err != nil {
+			return fmt.Errorf("Failed while reading tar file %s: %s", tarPath, err)
+		}
+
+		if header == nil {
+			fmt.Printf("WARN: tar file has empty header: %s. Skipping...\n", tarPath)
+			continue
+		}
+
+		target := filepath.Join(targetDir, filepath.Clean(header.Name))
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, header.FileInfo().Mode()); err != nil {
+				return fmt.Errorf("Error extracting dir %s from tar %s: %s", target, tarPath, err)
+			}
+
+		case tar.TypeReg:
+			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, header.FileInfo().Mode())
+			if err != nil {
+				return fmt.Errorf("Error extracting file %s from tar %s: %s", target, tarPath, err)
+			}
+
+			// Copy contents from the tar reader to the file
+			if _, err := io.Copy(outFile, tarReader); err != nil {
+				if closeErr := outFile.Close(); closeErr != nil {
+					fmt.Printf("WARN: error closing file %s from tar %s after copy error: %s\n", target, tarPath, err)
+				}
+				return fmt.Errorf("Error copying file %s from tar %s: %s", target, tarPath, err)
+			}
+			err = outFile.Close()
+			if err != nil {
+				fmt.Printf("WARN: error closing file %s from tar %s: %s\n", target, tarPath, err)
+			}
+		}
+	}
 }
 
 func main() {
