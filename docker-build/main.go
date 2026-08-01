@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -13,11 +14,11 @@ import (
 )
 
 const (
-	// Path to the kaniko executable
-	// See https://github.com/GoogleContainerTools/kaniko/blob/main/deploy/Dockerfile#L96
-	KANIKO_PATH = "/kaniko/executor"
-	// Name of the kaniko executable
-	KANIKO_NAME = "executor"
+	// Path to the buildctl executable
+	// See https://github.com/moby/buildkit/blob/master/Dockerfile
+	BUILDCTL_PATH = "/usr/bin/buildctl-daemonless.sh"
+	// Name of the buildctl executable
+	BUILDCTL_NAME = "buildctl-daemonless.sh"
 	// String written to the status-path when the image build is skipped
 	SKIPPED_STATUS = "Skipped"
 )
@@ -152,19 +153,31 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("Continuing build")
 
+	dockerfileDirPath, dockerfileName := filepath.Split(dockerfile)
+
 	// Build the PR image
-	kanikoArgs := []string{
-		KANIKO_NAME,
-		fmt.Sprintf("--dockerfile=%s/%s", clonePath, dockerfile),
-		fmt.Sprintf("--context=dir://%s/%s", clonePath, dockerContextDir),
-		"--no-push",
+	buildctlArgs := []string{
+		BUILDCTL_NAME,
+		"build",
+		"--frontend",
+		"gateway.v0",
+		"--opt",
+		"source=docker/dockerfile:1",
+		"--opt",
+		fmt.Sprintf("filename=%s", dockerfileName),
+		"--local",
+		fmt.Sprintf("context=%s/%s", clonePath, dockerContextDir),
+		"--local",
+		fmt.Sprintf("dockerfile=%s/%s", clonePath, dockerfileDirPath),
+		"--progress",
+		"plain",
 	}
 	fmt.Printf(
 		"Starting image build for PR using %s with args %s\n",
-		KANIKO_PATH,
-		kanikoArgs,
+		BUILDCTL_PATH,
+		buildctlArgs,
 	)
-	err = syscall.Exec(KANIKO_PATH, kanikoArgs, os.Environ())
+	err = syscall.Exec(BUILDCTL_PATH, buildctlArgs, os.Environ())
 	if err != nil {
 		panic(err)
 	}
@@ -244,28 +257,41 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("Continuing build")
 
+	dockerfileDirPath, dockerfileName := filepath.Split(dockerfile)
+
 	// Build the commit image
 	buildImgArgs := []string{
-		KANIKO_NAME,
-		fmt.Sprintf("--dockerfile=%s/%s", clonePath, dockerfile),
-		fmt.Sprintf("--context=dir://%s/%s", clonePath, dockerContextDir),
+		BUILDCTL_NAME,
+		"build",
+		"--frontend",
+		"gateway.v0",
+		"--opt",
+		"source=docker/dockerfile:1",
+		"--opt",
+		fmt.Sprintf("filename=%s", dockerfileName),
+		"--local",
+		fmt.Sprintf("context=%s/%s", clonePath, dockerContextDir),
+		"--local",
+		fmt.Sprintf("dockerfile=%s/%s", clonePath, dockerfileDirPath),
+		"--output",
 		fmt.Sprintf(
-			"--destination=%s%s%s:%s",
+			"type=image,name=%s%s%s:%s,push=true",
 			imageRegistry,
 			imageRepo,
 			dockerfileDir,
 			revisionHash,
 		),
-		"--cleanup",
+		"--progress",
+		"plain",
 	}
 	fmt.Printf(
 		"Starting image build for commit using %s with args %s\n",
-		KANIKO_PATH,
+		BUILDCTL_PATH,
 		buildImgArgs,
 	)
 
 	buildImgCmd := exec.Cmd{
-		Path:   KANIKO_PATH,
+		Path:   BUILDCTL_PATH,
 		Args:   buildImgArgs,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
@@ -277,25 +303,38 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 
 	// Build the commit integration test image
 	buildTestImgArgs := []string{
-		KANIKO_NAME,
-		fmt.Sprintf("--dockerfile=%s/%s", clonePath, dockerfile),
-		fmt.Sprintf("--context=dir://%s/%s", clonePath, dockerContextDir),
+		BUILDCTL_NAME,
+		"build",
+		"--frontend",
+		"gateway.v0",
+		"--opt",
+		"source=docker/dockerfile:1",
+		"--opt",
+		fmt.Sprintf("filename=%s", dockerfileName),
+		"--opt",
+		"target=integration-test",
+		"--local",
+		fmt.Sprintf("context=%s/%s", clonePath, dockerContextDir),
+		"--local",
+		fmt.Sprintf("dockerfile=%s/%s", clonePath, dockerfileDirPath),
+		"--output",
 		fmt.Sprintf(
-			"--destination=%s%s%s-integration-test:%s",
+			"type=image,name=%s%s%s-integration-test:%s,push=true",
 			imageRegistry,
 			imageRepo,
 			dockerfileDir,
 			revisionHash,
 		),
-		"--target=integration-test",
+		"--progress",
+		"plain",
 	}
 	fmt.Printf(
 		"Starting integration test image build for commit using %s with args %s\n",
-		KANIKO_PATH,
+		BUILDCTL_PATH,
 		buildTestImgArgs,
 	)
 
-	err = syscall.Exec(KANIKO_PATH, buildTestImgArgs, os.Environ())
+	err = syscall.Exec(BUILDCTL_PATH, buildTestImgArgs, os.Environ())
 	if err != nil {
 		panic(err)
 	}
