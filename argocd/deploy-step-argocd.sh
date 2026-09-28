@@ -59,6 +59,10 @@ ARGOCD_APP_NAMESPACE="${12}"
 # The ArgoCD app name
 ARGOCD_APP_NAME="${13}"
 
+# The path to write the status to. The value is set to Skipped if the ArgoCD
+# application sync policy is not enabled or no changes were made
+STATUS_FILE="${14}"
+
 echo "Deploying with parameters:"
 echo "  REPO_URL=${REPO_URL}"
 echo "  REPO_BRANCH=${REPO_BRANCH}"
@@ -73,12 +77,32 @@ echo "  IMAGE_TAG=${IMAGE_TAG}"
 echo "  IMAGE_REPO_SUFFIX=${IMAGE_REPO_SUFFIX}"
 echo "  ARGOCD_APP_NAMESPACE=${ARGOCD_APP_NAMESPACE}"
 echo "  ARGOCD_APP_NAME=${ARGOCD_APP_NAME}"
+echo "  STATUS_FILE=${STATUS_FILE}"
 
 FULL_IMAGE_NAME="${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:${IMAGE_TAG}"
 FULL_TEST_IMAGE_NAME="${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}-integration-test:${IMAGE_TAG}"
 echo "Derived parameters:"
 echo "  FULL_IMAGE_NAME=${FULL_IMAGE_NAME}"
 echo "  FULL_TEST_IMAGE_NAME=${FULL_TEST_IMAGE_NAME}"
+
+# Skip if the ArgoCD application is paused
+echo "Checking if the ArgoCD application is paused"
+ARGOCD_APP_ENABLED_STATUS="$(
+  curl \
+  --silent \
+  --show-error \
+  --fail \
+  "http://jettison-api-service.jettisonproj:2846/api/v1/namespaces/${ARGOCD_APP_NAMESPACE}/applications/${ARGOCD_APP_NAME}" \
+  | jq -re '.spec.syncPolicy.automated.enabled'
+)"
+
+if [[ "${ARGOCD_APP_ENABLED_STATUS}" == true ]]; then
+  echo "ArgoCD application is enabled. Continuing"
+else
+  echo "ArgoCD application is NOT enabled. Setting Skipped in status file"
+  echo "Skipped" > "${STATUS_FILE}"
+  exit 0
+fi
 
 # Clone the repo
 echo "Cloning the repo"
@@ -125,7 +149,8 @@ fi
 echo "Pushing to git"
 if git diff --quiet; then
   echo "No changes to commit"
-  echo "Exiting early"
+  echo "Exiting early. Setting Skipped in status file"
+  echo "Skipped" > "${STATUS_FILE}"
   exit 0
 fi
 git commit -am "Bump ${RESOURCE_PATH} to \`${IMAGE_TAG:0:8}\`
@@ -170,3 +195,5 @@ else
   echo "Resource path does not exist: ${RESOURCE_PATH}"
   exit 1
 fi
+
+echo "Succeeded" > "${STATUS_FILE}"
