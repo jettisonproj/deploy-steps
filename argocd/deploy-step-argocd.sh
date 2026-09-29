@@ -93,7 +93,7 @@ ARGOCD_APP_ENABLED_STATUS="$(
   --show-error \
   --fail \
   "http://jettison-api-service.jettisonproj:2846/api/v1/namespaces/${ARGOCD_APP_NAMESPACE}/applications/${ARGOCD_APP_NAME}" \
-  | jq -re '.spec.syncPolicy.automated.enabled'
+  | jq -r '.spec.syncPolicy.automated.enabled'
 )"
 
 if [[ "${ARGOCD_APP_ENABLED_STATUS}" == true ]]; then
