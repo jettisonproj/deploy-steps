@@ -80,6 +80,12 @@ func configureCmds() {
 		fmt.Sprintf("The directory to place the snapshot of the %s build target", TEST_RESULTS_TARGET))
 	prCmd.MarkFlagRequired("artifacts-dir")
 
+	prFlags.Uint(
+		"num-artifacts",
+		0,
+		"The number of expected artifacts. If set to 0, artifacts will not be placed in the artifacts dir")
+	prCmd.MarkFlagRequired("num-artifacts")
+
 	commitFlags := commitCmd.Flags()
 
 	commitFlags.String("clone-path", "", "the path to the cloned repo")
@@ -124,6 +130,12 @@ func configureCmds() {
 		fmt.Sprintf("The directory to place the snapshot of the %s build target", TEST_RESULTS_TARGET))
 	commitCmd.MarkFlagRequired("artifacts-dir")
 
+	commitFlags.Uint(
+		"num-artifacts",
+		0,
+		"The number of expected artifacts. If set to 0, artifacts will not be placed in the artifacts dir")
+	commitCmd.MarkFlagRequired("num-artifacts")
+
 	mainCmd.AddCommand(prCmd, commitCmd)
 }
 
@@ -160,6 +172,11 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error processing pr artifacts-dir flag: %s", err)
 	}
 
+	numArtifacts, err := prFlags.GetUint("num-artifacts")
+	if err != nil {
+		return fmt.Errorf("error processing pr num-artifacts flag: %s", err)
+	}
+
 	// Print command flags
 	fmt.Printf("PR build with params:\n")
 	fmt.Printf("- clonePath: %s\n", clonePath)
@@ -167,6 +184,7 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 	fmt.Printf("- dockerContextDir: %s\n", dockerContextDir)
 	fmt.Printf("- statusFile: %s\n", statusFile)
 	fmt.Printf("- artifactsDir: %s\n", artifactsDir)
+	fmt.Printf("- numArtifacts: %d\n", numArtifacts)
 
 	// Check status file and skip build if necessary
 	skipped, err := isBuildSkipped(statusFile)
@@ -202,9 +220,15 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 	buildTestResultsImgArgs := slices.Concat(baseBuildArgs, []string{
 		"--opt",
 		fmt.Sprintf("target=%s", TEST_RESULTS_TARGET),
-		"--output",
-		fmt.Sprintf("type=tar,dest=%s/%s", artifactsDir, ARTIFACTS_TAR_NAME),
 	})
+
+	if numArtifacts > 0 {
+		buildTestResultsImgArgs = append(
+			buildTestResultsImgArgs,
+			"--output",
+			fmt.Sprintf("type=tar,dest=%s/%s", artifactsDir, ARTIFACTS_TAR_NAME),
+		)
+	}
 
 	fmt.Printf(
 		"Starting test results image build for pr using %s with args %s\n",
@@ -223,10 +247,12 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Test results image build for pr failed: %s", err)
 	}
 
-	// Extract pr test result artifacts
-	err = untar(fmt.Sprintf("%s/%s", artifactsDir, ARTIFACTS_TAR_NAME), artifactsDir)
-	if err != nil {
-		return fmt.Errorf("Failed to extract pr test result artifacts: %s", err)
+	// Extract pr test result artifacts if artifacts are expected
+	if numArtifacts > 0 {
+		err = untar(fmt.Sprintf("%s/%s", artifactsDir, ARTIFACTS_TAR_NAME), artifactsDir)
+		if err != nil {
+			return fmt.Errorf("Failed to extract pr test result artifacts: %s", err)
+		}
 	}
 
 	// Build the pr integration test image
@@ -328,6 +354,11 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error processing commit artifacts-dir flag: %s", err)
 	}
 
+	numArtifacts, err := commitFlags.GetUint("num-artifacts")
+	if err != nil {
+		return fmt.Errorf("error processing commit num-artifacts flag: %s", err)
+	}
+
 	// Print command flags
 	fmt.Printf("Commmit build with params:\n")
 	fmt.Printf("- clonePath: %s\n", clonePath)
@@ -340,6 +371,7 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 	fmt.Printf("- imageRepo: %s\n", imageRepo)
 	fmt.Printf("- dockerfileDir: %s\n", dockerfileDir)
 	fmt.Printf("- artifactsDir: %s\n", artifactsDir)
+	fmt.Printf("- numArtifacts: %d\n", numArtifacts)
 
 	// Check status file and skip build if necessary
 	skipped, err := isBuildSkipped(statusFile)
@@ -375,9 +407,15 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 	buildTestResultsImgArgs := slices.Concat(baseBuildArgs, []string{
 		"--opt",
 		fmt.Sprintf("target=%s", TEST_RESULTS_TARGET),
-		"--output",
-		fmt.Sprintf("type=tar,dest=%s/%s", artifactsDir, ARTIFACTS_TAR_NAME),
 	})
+
+	if numArtifacts > 0 {
+		buildTestResultsImgArgs = append(
+			buildTestResultsImgArgs,
+			"--output",
+			fmt.Sprintf("type=tar,dest=%s/%s", artifactsDir, ARTIFACTS_TAR_NAME),
+		)
+	}
 
 	fmt.Printf(
 		"Starting test results image build for commit using %s with args %s\n",
@@ -396,10 +434,12 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Test results image build for commit failed: %s", err)
 	}
 
-	// Extract commit test result artifacts
-	err = untar(fmt.Sprintf("%s/%s", artifactsDir, ARTIFACTS_TAR_NAME), artifactsDir)
-	if err != nil {
-		return fmt.Errorf("Failed to extract commit test result artifacts: %s", err)
+	// Extract commit test result artifacts if artifacts are expected
+	if numArtifacts > 0 {
+		err = untar(fmt.Sprintf("%s/%s", artifactsDir, ARTIFACTS_TAR_NAME), artifactsDir)
+		if err != nil {
+			return fmt.Errorf("Failed to extract commit test result artifacts: %s", err)
+		}
 	}
 
 	// Build the commit integration test image
