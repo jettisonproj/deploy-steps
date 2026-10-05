@@ -8,6 +8,7 @@ set -o pipefail
 
 
 cd "$(dirname "$0")"
+source ./log.sh
 source ./generate-github-installation-access-token.sh
 
 
@@ -36,20 +37,20 @@ HEAD_SHA="$6"
 # The output file to contain the id of the started GitHub Check
 OUTPUT_FILE="$7"
 
-echo "Deploying with parameters:"
-echo "  APP_ID=${APP_ID}"
-echo "  KEY_PATH=${KEY_PATH}"
-echo "  REPO_SHORT=${REPO_SHORT}"
-echo "  DETAILS_URL=${DETAILS_URL}"
-echo "  EVENT_TYPE=${EVENT_TYPE}"
-echo "  HEAD_SHA=${HEAD_SHA}"
-echo "  OUTPUT_FILE=${OUTPUT_FILE}"
+debug "Deploying with parameters:"
+debug "  APP_ID=${APP_ID}"
+debug "  KEY_PATH=${KEY_PATH}"
+debug "  REPO_SHORT=${REPO_SHORT}"
+debug "  DETAILS_URL=${DETAILS_URL}"
+debug "  EVENT_TYPE=${EVENT_TYPE}"
+debug "  HEAD_SHA=${HEAD_SHA}"
+debug "  OUTPUT_FILE=${OUTPUT_FILE}"
 
 # Fetch GitHub Access Token
-echo "Fetching GitHub Access Token"
+info "Fetching GitHub Access Token"
 GH_ACCESS_TOKEN="$(generate-installation-access-token "${APP_ID}" "${KEY_PATH}" "${REPO_SHORT}")"
 
-echo "Starting GitHub Status Check"
+info "Starting GitHub Status Check"
 STATUS_CHECK_DATA='{
   "name": "Jettison '"${EVENT_TYPE}"' Flow",
   "head_sha": "'"${HEAD_SHA}"'",
