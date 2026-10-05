@@ -1,10 +1,10 @@
 # Skip test for deploy steps
 # Instead, it should be covered by the caller
-FROM scratch as test-results
-FROM scratch as integration-test
+FROM scratch AS test-results
+FROM scratch AS integration-test
 
 # Build the docker-build binary
-FROM golang:1.24 AS build
+FROM golang:1.27.1 AS build
 
 WORKDIR /app
 

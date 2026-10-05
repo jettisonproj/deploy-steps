@@ -1,8 +1,11 @@
 module github.com/osoriano/deploy-steps/docker-build
 
-go 1.24.1
+go 1.27.1
 
-require github.com/spf13/cobra v1.9.1
+require (
+	github.com/lmittmann/tint v1.2.1
+	github.com/spf13/cobra v1.9.1
+)
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
