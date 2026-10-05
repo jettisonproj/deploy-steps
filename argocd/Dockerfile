@@ -1,7 +1,7 @@
 # Skip test for deploy steps
 # Instead, it should be covered by the caller
-FROM scratch as test-results
-FROM scratch as integration-test
+FROM scratch AS test-results
+FROM scratch AS integration-test
 
 # Build the image for the deploy step
 FROM ubuntu:24.04
