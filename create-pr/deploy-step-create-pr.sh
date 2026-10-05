@@ -9,6 +9,7 @@ set -o pipefail
 
 
 cd "$(dirname "${0}")"
+source ./log.sh
 source ./generate-github-installation-access-token.sh
 source ./git-push-to-branch.sh
 
@@ -53,32 +54,32 @@ IMAGE_TAG="${11}"
 # The image repository suffix
 IMAGE_REPO_SUFFIX="${12}"
 
-echo "Deploying with parameters:"
-echo "  REPO_URL=${REPO_URL}"
-echo "  REPO_SHORT_NAME=${REPO_SHORT_NAME}"
-echo "  REPO_BRANCH=${REPO_BRANCH}"
-echo "  APP_ID=${APP_ID}"
-echo "  APP_USER_ID=${APP_USER_ID}"
-echo "  APP_USER_NAME=${APP_USER_NAME}"
-echo "  KEY_PATH=${KEY_PATH}"
-echo "  FILE_PATHS=${FILE_PATHS}"
-echo "  IMAGE_REGISTRY=${IMAGE_REGISTRY}"
-echo "  IMAGE_REPO_PREFIX=${IMAGE_REPO_PREFIX}"
-echo "  IMAGE_TAG=${IMAGE_TAG}"
-echo "  IMAGE_REPO_SUFFIX=${IMAGE_REPO_SUFFIX}"
+debug "Deploying with parameters:"
+debug "  REPO_URL=${REPO_URL}"
+debug "  REPO_SHORT_NAME=${REPO_SHORT_NAME}"
+debug "  REPO_BRANCH=${REPO_BRANCH}"
+debug "  APP_ID=${APP_ID}"
+debug "  APP_USER_ID=${APP_USER_ID}"
+debug "  APP_USER_NAME=${APP_USER_NAME}"
+debug "  KEY_PATH=${KEY_PATH}"
+debug "  FILE_PATHS=${FILE_PATHS}"
+debug "  IMAGE_REGISTRY=${IMAGE_REGISTRY}"
+debug "  IMAGE_REPO_PREFIX=${IMAGE_REPO_PREFIX}"
+debug "  IMAGE_TAG=${IMAGE_TAG}"
+debug "  IMAGE_REPO_SUFFIX=${IMAGE_REPO_SUFFIX}"
 
 FULL_IMAGE_NAME="${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:${IMAGE_TAG}"
 PR_BRANCH="${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}-${IMAGE_TAG}"
-echo "Derived parameters:"
-echo "  FULL_IMAGE_NAME=${FULL_IMAGE_NAME}"
+debug "Derived parameters:"
+debug "  FULL_IMAGE_NAME=${FULL_IMAGE_NAME}"
 
 # Clone the repo
-echo "Cloning the repo"
+info "Cloning the repo"
 git clone --depth 1 --branch "${REPO_BRANCH}" --single-branch "${REPO_URL}" /repo
 cd /repo
 
 # Configure git
-echo "Configuring git"
+info "Configuring git"
 git config user.name "${APP_USER_NAME}"
 git config user.email "${APP_USER_ID}+${APP_USER_NAME}@users.noreply.github.com"
 GH_ACCESS_TOKEN="$(generate-installation-access-token "${APP_ID}" "${KEY_PATH}" "${IMAGE_REPO_PREFIX}")"
@@ -86,15 +87,15 @@ git config user.password "${GH_ACCESS_TOKEN}"
 
 # Perform the subtitution
 for FILE_PATH in ${FILE_PATHS}; do
-  echo "Substituting image version for: ${FILE_PATH}"
+  info "Substituting image version for: ${FILE_PATH}"
   sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${FILE_PATH}"
 done
 
 # Commit to git
-echo "Pushing to git"
+info "Pushing to git"
 if git diff --quiet; then
-  echo "No changes to commit"
-  echo "Exiting early"
+  warn "No changes to commit"
+  warn "Exiting early"
   exit 0
 fi
 
