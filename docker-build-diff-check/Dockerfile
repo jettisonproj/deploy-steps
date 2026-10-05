@@ -1,6 +1,7 @@
-# Skip integration test for deploy steps
+# Skip test for deploy steps
 # Instead, it should be covered by the caller
-FROM scratch as integration-test
+FROM scratch AS test-results
+FROM scratch AS integration-test
 
 # Build the image for the deploy step
 FROM ubuntu:24.04
@@ -14,6 +15,6 @@ RUN apt-get update && \
 
 WORKDIR /root
 
-COPY docker-build-diff-check-pr.sh docker-build-diff-check-commit.sh .
+COPY log.sh docker-build-diff-check-pr.sh docker-build-diff-check-commit.sh .
 
 CMD ["./docker-build-diff-check-pr.sh"]

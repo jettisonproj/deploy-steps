@@ -11,6 +11,10 @@ set -o nounset
 set -o pipefail
 
 
+cd "$(dirname "${0}")"
+source ./log.sh
+
+
 #
 # Parameters
 #
@@ -41,21 +45,21 @@ STATUS_FILE="$7"
 # to the clone directory
 REPO_OVERRIDE_DIR="$8"
 
-echo "$0 with parameters:"
-echo "- REPO=${REPO}"
-echo "- CLONE_PATH=${CLONE_PATH}"
-echo "- REVISION_HASH=${REVISION_HASH}"
-echo "- REVISION_REF=${REVISION_REF}"
-echo "- DOCKERFILE=${DOCKERFILE}"
-echo "- DOCKER_CONTEXT_DIR=${DOCKER_CONTEXT_DIR}"
-echo "- STATUS_FILE=${STATUS_FILE}"
-echo "- REPO_OVERRIDE_DIR=${REPO_OVERRIDE_DIR}"
+debug "$0 with parameters:"
+debug "- REPO=${REPO}"
+debug "- CLONE_PATH=${CLONE_PATH}"
+debug "- REVISION_HASH=${REVISION_HASH}"
+debug "- REVISION_REF=${REVISION_REF}"
+debug "- DOCKERFILE=${DOCKERFILE}"
+debug "- DOCKER_CONTEXT_DIR=${DOCKER_CONTEXT_DIR}"
+debug "- STATUS_FILE=${STATUS_FILE}"
+debug "- REPO_OVERRIDE_DIR=${REPO_OVERRIDE_DIR}"
 
-echo "Changing to clone path"
+info "Changing to clone path"
 mkdir -p "${CLONE_PATH}"
 cd "${CLONE_PATH}"
 
-echo "Fetching and checking out changes"
+info "Fetching and checking out changes"
 git init
 git remote add origin "${REPO}"
 git fetch origin --depth 2 --no-tags "${REVISION_HASH}"
@@ -64,10 +68,10 @@ git reset --hard FETCH_HEAD
 # Copies the files mounted into the REPO_OVERRIDE_DIR
 # to the clone dir
 copy_override_files() {
-  echo "Adding files from override dir to clone dir"
+  info "Adding files from override dir to clone dir"
 
   if [[ ! -d "${REPO_OVERRIDE_DIR}" ]]; then
-    echo "Skipping override files. No override dir exists"
+    info "Skipping override files. No override dir exists"
     return 0
   fi
 
@@ -78,19 +82,19 @@ copy_override_files() {
     relative_override_dir="$(dirname "${relative_override_file}")"
     clone_override_dir="${CLONE_PATH}${relative_override_dir}"
 
-    echo "${repo_override_file} -> ${clone_override_file}"
+    debug "${repo_override_file} -> ${clone_override_file}"
 
     mkdir -p "${clone_override_dir}"
     cp "${repo_override_file}" "${clone_override_file}"
 
   done
 
-  echo "Finished adding override files"
+  info "Finished adding override files"
 }
 
-echo "Checking for relevant diffs"
+info "Checking for relevant diffs"
 if [[ -z "${DOCKER_CONTEXT_DIR}" ]]; then
-  echo "Using empty docker context dir"
+  info "Using empty docker context dir"
   copy_override_files
   echo "Succeeded" > "${STATUS_FILE}"
   exit 0
@@ -99,33 +103,33 @@ fi
 CHANGED_FILES="$(mktemp "/tmp/$(basename "$0").XXXXXX")"
 trap 'rm -f "${CHANGED_FILES}"' EXIT
 
-echo "Changed files:"
+info "Changed files:"
 git diff-tree --name-only --no-commit-id -r "${REVISION_HASH}" \
   | tee "${CHANGED_FILES}"
 
-echo "Checking for diff in docker file"
+info "Checking for diff in docker file"
 if grep --fixed-strings --line-regexp "${DOCKERFILE}" "${CHANGED_FILES}"; then
-  echo "Found changes in dockerfile"
+  info "Found changes in dockerfile"
   copy_override_files
   echo "Succeeded" > "${STATUS_FILE}"
   exit 0
 fi
 
-echo "Checking for diff in docker context dir"
+info "Checking for diff in docker context dir"
 TRAILING_SLASH="${DOCKER_CONTEXT_DIR: -1}"
 if [[ "${TRAILING_SLASH}" != / ]]; then
   DOCKER_CONTEXT_DIR+=/
-  echo "Added trailing slash to docker context dir: ${DOCKER_CONTEXT_DIR}"
+  debug "Added trailing slash to docker context dir: ${DOCKER_CONTEXT_DIR}"
 fi
 
 if cut -c "-${#DOCKER_CONTEXT_DIR}" "${CHANGED_FILES}" \
   | grep --fixed-strings --line-regexp "${DOCKER_CONTEXT_DIR}"
 then
-  echo "Found changes in docker context dir"
+  info "Found changes in docker context dir"
   copy_override_files
   echo "Succeeded" > "${STATUS_FILE}"
   exit 0
 fi
 
-echo "Did not find relevant changes. Setting Skipped in status file"
+warn "Did not find relevant changes. Setting Skipped in status file"
 echo "Skipped" > "${STATUS_FILE}"
