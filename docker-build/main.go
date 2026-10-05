@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/lmittmann/tint"
 	"github.com/spf13/cobra"
 )
 
@@ -177,14 +179,17 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error processing pr num-artifacts flag: %s", err)
 	}
 
+	// Done parsing flags. Silence usage when the next error is encountered
+	cmd.SilenceUsage = true
+
 	// Print command flags
-	fmt.Printf("PR build with params:\n")
-	fmt.Printf("- clonePath: %s\n", clonePath)
-	fmt.Printf("- dockerfile: %s\n", dockerfile)
-	fmt.Printf("- dockerContextDir: %s\n", dockerContextDir)
-	fmt.Printf("- statusFile: %s\n", statusFile)
-	fmt.Printf("- artifactsDir: %s\n", artifactsDir)
-	fmt.Printf("- numArtifacts: %d\n", numArtifacts)
+	slog.Debug("PR build with params:")
+	slog.Debug(fmt.Sprintf("- clonePath: %s", clonePath))
+	slog.Debug(fmt.Sprintf("- dockerfile: %s", dockerfile))
+	slog.Debug(fmt.Sprintf("- dockerContextDir: %s", dockerContextDir))
+	slog.Debug(fmt.Sprintf("- statusFile: %s", statusFile))
+	slog.Debug(fmt.Sprintf("- artifactsDir: %s", artifactsDir))
+	slog.Debug(fmt.Sprintf("- numArtifacts: %d", numArtifacts))
 
 	// Check status file and skip build if necessary
 	skipped, err := isBuildSkipped(statusFile)
@@ -192,10 +197,10 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error checking skip status: %s", err)
 	}
 	if skipped {
-		fmt.Println("Build is skipped. Exiting early")
+		slog.Warn("Build is skipped. Exiting early")
 		return nil
 	}
-	fmt.Println("Continuing build")
+	slog.Info("Continuing build")
 
 	dockerfileDirPath, dockerfileName := filepath.Split(dockerfile)
 
@@ -230,11 +235,11 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		)
 	}
 
-	fmt.Printf(
-		"Starting test results image build for pr using %s with args %s\n",
+	slog.Info(fmt.Sprintf(
+		"Starting test results image build for pr using %s with args %s",
 		BUILDCTL_PATH,
 		buildTestResultsImgArgs,
-	)
+	))
 
 	buildTestResultsImgCmd := exec.Cmd{
 		Path:   BUILDCTL_PATH,
@@ -261,11 +266,11 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		fmt.Sprintf("target=%s", TEST_TARGET),
 	})
 
-	fmt.Printf(
-		"Starting integration test image build for pr using %s with args %s\n",
+	slog.Info(fmt.Sprintf(
+		"Starting integration test image build for pr using %s with args %s",
 		BUILDCTL_PATH,
 		buildTestImgArgs,
-	)
+	))
 
 	buildTestImgCmd := exec.Cmd{
 		Path:   BUILDCTL_PATH,
@@ -279,11 +284,11 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build the PR image
-	fmt.Printf(
-		"Starting image build for PR using %s with args %s\n",
+	slog.Info(fmt.Sprintf(
+		"Starting image build for PR using %s with args %s",
 		BUILDCTL_PATH,
 		baseBuildArgs,
-	)
+	))
 
 	buildImgCmd := exec.Cmd{
 		Path:   BUILDCTL_PATH,
@@ -359,19 +364,22 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error processing commit num-artifacts flag: %s", err)
 	}
 
+	// Done parsing flags. Silence usage when the next error is encountered
+	cmd.SilenceUsage = true
+
 	// Print command flags
-	fmt.Printf("Commmit build with params:\n")
-	fmt.Printf("- clonePath: %s\n", clonePath)
-	fmt.Printf("- revisionHash: %s\n", revisionHash)
-	fmt.Printf("- revisionRef: %s\n", revisionRef)
-	fmt.Printf("- dockerfile: %s\n", dockerfile)
-	fmt.Printf("- dockerContextDir: %s\n", dockerContextDir)
-	fmt.Printf("- statusFile: %s\n", statusFile)
-	fmt.Printf("- imageRegistry: %s\n", imageRegistry)
-	fmt.Printf("- imageRepo: %s\n", imageRepo)
-	fmt.Printf("- dockerfileDir: %s\n", dockerfileDir)
-	fmt.Printf("- artifactsDir: %s\n", artifactsDir)
-	fmt.Printf("- numArtifacts: %d\n", numArtifacts)
+	slog.Debug("Commit build with params:")
+	slog.Debug(fmt.Sprintf("- clonePath: %s", clonePath))
+	slog.Debug(fmt.Sprintf("- revisionHash: %s", revisionHash))
+	slog.Debug(fmt.Sprintf("- revisionRef: %s", revisionRef))
+	slog.Debug(fmt.Sprintf("- dockerfile: %s", dockerfile))
+	slog.Debug(fmt.Sprintf("- dockerContextDir: %s", dockerContextDir))
+	slog.Debug(fmt.Sprintf("- statusFile: %s", statusFile))
+	slog.Debug(fmt.Sprintf("- imageRegistry: %s", imageRegistry))
+	slog.Debug(fmt.Sprintf("- imageRepo: %s", imageRepo))
+	slog.Debug(fmt.Sprintf("- dockerfileDir: %s", dockerfileDir))
+	slog.Debug(fmt.Sprintf("- artifactsDir: %s", artifactsDir))
+	slog.Debug(fmt.Sprintf("- numArtifacts: %d", numArtifacts))
 
 	// Check status file and skip build if necessary
 	skipped, err := isBuildSkipped(statusFile)
@@ -379,10 +387,10 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("error checking skip status: %s", err)
 	}
 	if skipped {
-		fmt.Println("Build is skipped. Exiting early")
+		slog.Warn("Build is skipped. Exiting early")
 		return nil
 	}
-	fmt.Println("Continuing build")
+	slog.Info("Continuing build")
 
 	dockerfileDirPath, dockerfileName := filepath.Split(dockerfile)
 
@@ -417,11 +425,11 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		)
 	}
 
-	fmt.Printf(
-		"Starting test results image build for commit using %s with args %s\n",
+	slog.Info(fmt.Sprintf(
+		"Starting test results image build for commit using %s with args %s",
 		BUILDCTL_PATH,
 		buildTestResultsImgArgs,
-	)
+	))
 
 	buildTestResultsImgCmd := exec.Cmd{
 		Path:   BUILDCTL_PATH,
@@ -457,11 +465,11 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		),
 	})
 
-	fmt.Printf(
-		"Starting integration test image build for commit using %s with args %s\n",
+	slog.Info(fmt.Sprintf(
+		"Starting integration test image build for commit using %s with args %s",
 		BUILDCTL_PATH,
 		buildTestImgArgs,
-	)
+	))
 
 	buildTestImgCmd := exec.Cmd{
 		Path:   BUILDCTL_PATH,
@@ -486,11 +494,11 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		),
 	})
 
-	fmt.Printf(
-		"Starting image build for commit using %s with args %s\n",
+	slog.Info(fmt.Sprintf(
+		"Starting image build for commit using %s with args %s",
 		BUILDCTL_PATH,
 		buildImgArgs,
-	)
+	))
 
 	buildImgCmd := exec.Cmd{
 		Path:   BUILDCTL_PATH,
@@ -507,12 +515,12 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 }
 
 func isBuildSkipped(statusFile string) (bool, error) {
-	fmt.Println("Checking status file for skipped status")
+	slog.Info("Checking status file for skipped status")
 
 	bytes, err := os.ReadFile(statusFile)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			fmt.Println("Continuing build due to no status file found")
+			slog.Info("Continuing build due to no status file found")
 			return false, nil
 		}
 		return false, err
@@ -541,7 +549,7 @@ func untar(tarPath string, targetDir string) error {
 		}
 
 		if header == nil {
-			fmt.Printf("WARN: tar file has empty header: %s. Skipping...\n", tarPath)
+			slog.Warn("tar file has empty header: %s. Skipping...", "tarPath", tarPath)
 			continue
 		}
 
@@ -562,22 +570,41 @@ func untar(tarPath string, targetDir string) error {
 			// Copy contents from the tar reader to the file
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				if closeErr := outFile.Close(); closeErr != nil {
-					fmt.Printf("WARN: error closing file %s from tar %s after copy error: %s\n", target, tarPath, err)
+					slog.Warn(fmt.Sprintf("error closing file %s from tar %s after copy error: %s", target, tarPath, closeErr))
 				}
 				return fmt.Errorf("Error copying file %s from tar %s: %s", target, tarPath, err)
 			}
 			err = outFile.Close()
 			if err != nil {
-				return fmt.Errorf("Error closing file %s from tar %s: %s\n", target, tarPath, err)
+				return fmt.Errorf("Error closing file %s from tar %s: %s", target, tarPath, err)
 			}
 		}
 	}
 }
 
+func setupLogger() {
+	loggerOpts := &tint.Options{
+		Level:       slog.LevelDebug,
+		ReplaceAttr: setupLogAttrs,
+	}
+	logger := slog.New(tint.NewTextHandler(os.Stdout, loggerOpts))
+
+	slog.SetDefault(logger)
+}
+
+// Set up slog to drop the timestamp since it is already provided by k8s
+func setupLogAttrs(groups []string, a slog.Attr) slog.Attr {
+	if a.Key == slog.TimeKey {
+		return slog.Attr{}
+	}
+	return a
+}
+
 func main() {
+	setupLogger()
 	configureCmds()
 	if err := mainCmd.Execute(); err != nil {
-		fmt.Printf("error executing command: %s\n", err)
+		slog.Error(fmt.Sprintf("error executing command: %s", err))
 		os.Exit(1)
 	}
 }
