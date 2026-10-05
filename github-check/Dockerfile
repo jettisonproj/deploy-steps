@@ -1,6 +1,7 @@
-# Skip integration test for deploy steps
+# Skip test for deploy steps
 # Instead, it should be covered by the caller
-FROM scratch as integration-test
+FROM scratch AS test-results
+FROM scratch AS integration-test
 
 # Build the image for the deploy step
 FROM ubuntu:24.04
@@ -11,6 +12,6 @@ RUN apt-get update && \
 
 WORKDIR /root
 
-COPY generate-github-installation-access-token.sh github-check-start.sh github-check-complete.sh .
+COPY log.sh generate-github-installation-access-token.sh github-check-start.sh github-check-complete.sh .
 
 CMD ["./deploy-step-github-check.sh"]
