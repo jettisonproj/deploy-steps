@@ -1,6 +1,6 @@
 module github.com/osoriano/deploy-steps/docker-build
 
-go 1.24.1
+go 1.27.1
 
 require github.com/spf13/cobra v1.9.1
 
