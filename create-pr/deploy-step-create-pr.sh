@@ -88,7 +88,11 @@ git config user.password "${GH_ACCESS_TOKEN}"
 # Perform the subtitution
 for FILE_PATH in ${FILE_PATHS}; do
   info "Substituting image version for: ${FILE_PATH}"
-  sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${FILE_PATH}"
+  if [[ -d "${FILE_PATH}" ]]; then
+    sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${FILE_PATH}"/*
+  else
+    sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${FILE_PATH}"
+  fi
 done
 
 # Commit to git
