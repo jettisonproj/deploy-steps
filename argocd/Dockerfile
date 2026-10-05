@@ -15,6 +15,6 @@ RUN apt-get update && \
 
 WORKDIR /root
 
-COPY generate-github-installation-access-token.sh wait-for-resource.sh git-push.sh deploy-step-argocd.sh .
+COPY log.sh generate-github-installation-access-token.sh wait-for-resource.sh git-push.sh deploy-step-argocd.sh .
 
 CMD ["./deploy-step-argocd.sh"]

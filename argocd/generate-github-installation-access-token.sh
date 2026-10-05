@@ -70,7 +70,7 @@ generate-installation-access-token() {
   )"
 
   if [[ -z "${installation_id}" ]]; then
-    echo "No installation id found" 1>&2
+    error "No installation id found" 1>&2
     return 1
   fi
 
