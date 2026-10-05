@@ -11,6 +11,7 @@ set -o pipefail
 
 
 cd "$(dirname "${0}")"
+source ./log.sh
 source ./generate-github-installation-access-token.sh
 source ./wait-for-resource.sh
 source ./git-push.sh
@@ -63,30 +64,30 @@ ARGOCD_APP_NAME="${13}"
 # application sync policy is not enabled or no changes were made
 STATUS_FILE="${14}"
 
-echo "Deploying with parameters:"
-echo "  REPO_URL=${REPO_URL}"
-echo "  REPO_BRANCH=${REPO_BRANCH}"
-echo "  APP_ID=${APP_ID}"
-echo "  APP_USER_ID=${APP_USER_ID}"
-echo "  APP_USER_NAME=${APP_USER_NAME}"
-echo "  KEY_PATH=${KEY_PATH}"
-echo "  RESOURCE_PATH=${RESOURCE_PATH}"
-echo "  IMAGE_REGISTRY=${IMAGE_REGISTRY}"
-echo "  IMAGE_REPO_PREFIX=${IMAGE_REPO_PREFIX}"
-echo "  IMAGE_TAG=${IMAGE_TAG}"
-echo "  IMAGE_REPO_SUFFIX=${IMAGE_REPO_SUFFIX}"
-echo "  ARGOCD_APP_NAMESPACE=${ARGOCD_APP_NAMESPACE}"
-echo "  ARGOCD_APP_NAME=${ARGOCD_APP_NAME}"
-echo "  STATUS_FILE=${STATUS_FILE}"
+debug "Deploying with parameters:"
+debug "  REPO_URL=${REPO_URL}"
+debug "  REPO_BRANCH=${REPO_BRANCH}"
+debug "  APP_ID=${APP_ID}"
+debug "  APP_USER_ID=${APP_USER_ID}"
+debug "  APP_USER_NAME=${APP_USER_NAME}"
+debug "  KEY_PATH=${KEY_PATH}"
+debug "  RESOURCE_PATH=${RESOURCE_PATH}"
+debug "  IMAGE_REGISTRY=${IMAGE_REGISTRY}"
+debug "  IMAGE_REPO_PREFIX=${IMAGE_REPO_PREFIX}"
+debug "  IMAGE_TAG=${IMAGE_TAG}"
+debug "  IMAGE_REPO_SUFFIX=${IMAGE_REPO_SUFFIX}"
+debug "  ARGOCD_APP_NAMESPACE=${ARGOCD_APP_NAMESPACE}"
+debug "  ARGOCD_APP_NAME=${ARGOCD_APP_NAME}"
+debug "  STATUS_FILE=${STATUS_FILE}"
 
 FULL_IMAGE_NAME="${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:${IMAGE_TAG}"
 FULL_TEST_IMAGE_NAME="${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}-integration-test:${IMAGE_TAG}"
-echo "Derived parameters:"
-echo "  FULL_IMAGE_NAME=${FULL_IMAGE_NAME}"
-echo "  FULL_TEST_IMAGE_NAME=${FULL_TEST_IMAGE_NAME}"
+debug "Derived parameters:"
+debug "  FULL_IMAGE_NAME=${FULL_IMAGE_NAME}"
+debug "  FULL_TEST_IMAGE_NAME=${FULL_TEST_IMAGE_NAME}"
 
 # Skip if the ArgoCD application is paused
-echo "Checking if the ArgoCD application is paused"
+info "Checking if the ArgoCD application is paused"
 ARGOCD_APP_ENABLED_STATUS="$(
   curl \
   --silent \
@@ -97,59 +98,59 @@ ARGOCD_APP_ENABLED_STATUS="$(
 )"
 
 if [[ "${ARGOCD_APP_ENABLED_STATUS}" == true ]]; then
-  echo "ArgoCD application is enabled. Continuing"
+  info "ArgoCD application is enabled. Continuing"
 else
-  echo "ArgoCD application is NOT enabled. Setting Skipped in status file"
+  warn "ArgoCD application is NOT enabled. Setting Skipped in status file"
   echo "Skipped" > "${STATUS_FILE}"
   exit 0
 fi
 
 # Clone the repo
-echo "Cloning the repo"
+info "Cloning the repo"
 git clone --depth 1 --branch "${REPO_BRANCH}" --single-branch "${REPO_URL}" /repo
 cd /repo
 
 # Configure git
-echo "Configuring git"
+info "Configuring git"
 git config user.name "${APP_USER_NAME}"
 git config user.email "${APP_USER_ID}+${APP_USER_NAME}@users.noreply.github.com"
 GH_ACCESS_TOKEN="$(generate-installation-access-token "${APP_ID}" "${KEY_PATH}" "${IMAGE_REPO_PREFIX}")"
 git config user.password "${GH_ACCESS_TOKEN}"
 
 # Perform the subtitution
-echo "Substituting image version"
+info "Substituting image version"
 if [[ -d "${RESOURCE_PATH}" ]]; then
   for resource_path_part in "${RESOURCE_PATH}"/*; do
     if [[ -f "${resource_path_part}" ]]; then
       file_ext=${resource_path_part##*.}
       if [[ "${file_ext}" == yaml || "${file_ext}" == yml || "${file_ext}" == json ]]; then
-        echo "Substituting image version for: ${resource_path_part}"
+        info "Substituting image version for: ${resource_path_part}"
         sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${resource_path_part}"
         sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}-integration-test:[a-zA-Z0-9_.-]+|${FULL_TEST_IMAGE_NAME}|g" -i "${resource_path_part}"
         sed --regexp-extended "s|(app\\.kubernetes\\.io/version[\": ]+)[a-zA-Z0-9_.-]+|\\1${IMAGE_TAG}|g" -i "${resource_path_part}"
       else
-        echo "Warning: unknown file extension ${file_ext}"
+        warn "Unknown file extension ${file_ext}"
       fi
     else
       # This may need an update if traversing the directory is needed
-      echo "Warning: skipping non-file: ${resource_path_part}"
+      warn "Skipping non-file: ${resource_path_part}"
     fi
   done
 elif [[ -f "${RESOURCE_PATH}" ]]; then
-  echo "Substituting image version for: ${RESOURCE_PATH}"
+  info "Substituting image version for: ${RESOURCE_PATH}"
   sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:[a-zA-Z0-9_.-]+|${FULL_IMAGE_NAME}|g" -i "${RESOURCE_PATH}"
   sed --regexp-extended "s|${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}-integration-test:[a-zA-Z0-9_.-]+|${FULL_TEST_IMAGE_NAME}|g" -i "${RESOURCE_PATH}"
   sed --regexp-extended "s|(app\\.kubernetes\\.io/version[\": ]+)[a-zA-Z0-9_.-]+|\\1${IMAGE_TAG}|g" -i "${RESOURCE_PATH}"
 else
-  echo "Resource path does not exist: ${RESOURCE_PATH}"
+  error "Resource path does not exist: ${RESOURCE_PATH}"
   exit 1
 fi
 
 # Commit and push to git
-echo "Pushing to git"
+info "Pushing to git"
 if git diff --quiet; then
-  echo "No changes to commit"
-  echo "Exiting early. Setting Skipped in status file"
+  warn "No changes to commit"
+  warn "Exiting early. Setting Skipped in status file"
   echo "Skipped" > "${STATUS_FILE}"
   exit 0
 fi
@@ -163,7 +164,7 @@ git remote set-url origin "${NEW_REPO_URL}"
 git-push "${REPO_BRANCH}"
 
 # Sync the ArgoCD application
-echo "Syncing the ArgoCD application"
+info "Syncing the ArgoCD application"
 curl \
   --silent \
   --show-error \
@@ -172,27 +173,27 @@ curl \
   "http://jettison-api-service.jettisonproj:2846/api/v1/namespaces/${ARGOCD_APP_NAMESPACE}/applications/${ARGOCD_APP_NAME}/sync"
 
 # Wait for the resource to be available
-echo "Waiting for resources"
+info "Waiting for resources"
 if [[ -d "${RESOURCE_PATH}" ]]; then
   for resource_path_part in "${RESOURCE_PATH}"/*; do
     if [[ -f "${resource_path_part}" ]]; then
       file_ext=${resource_path_part##*.}
       if [[ "${file_ext}" == yaml || "${file_ext}" == yml || "${file_ext}" == json ]]; then
-        echo "Waiting for resource: ${resource_path_part}"
+        info "Waiting for resource: ${resource_path_part}"
         wait-for-resource "${resource_path_part}" "${IMAGE_TAG}"
       else
-        echo "Warning: unknown file extension ${file_ext}"
+        warn "Unknown file extension ${file_ext}"
       fi
     else
       # This may need an update if traversing the directory is needed
-      echo "Warning: skipping non-file: ${resource_path_part}"
+      warn "Skipping non-file: ${resource_path_part}"
     fi
   done
 elif [[ -f "${RESOURCE_PATH}" ]]; then
-  echo "Waiting for resource: ${RESOURCE_PATH}"
+  info "Waiting for resource: ${RESOURCE_PATH}"
   wait-for-resource "${RESOURCE_PATH}" "${IMAGE_TAG}"
 else
-  echo "Resource path does not exist: ${RESOURCE_PATH}"
+  error "Resource path does not exist: ${RESOURCE_PATH}"
   exit 1
 fi
 
