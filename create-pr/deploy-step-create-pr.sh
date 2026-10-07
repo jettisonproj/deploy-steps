@@ -54,7 +54,7 @@ IMAGE_TAG="${11}"
 # The image repository suffix
 IMAGE_REPO_SUFFIX="${12}"
 
-# The image repository suffix
+# The path to write the created PR number to
 CREATED_PR_NUMBER_FILE="${13}"
 
 debug "Deploying with parameters:"
@@ -104,6 +104,7 @@ info "Pushing to git"
 if git diff --quiet; then
   warn "No changes to commit"
   warn "Exiting early"
+  echo 0 > "${CREATED_PR_NUMBER_FILE}"
   exit 0
 fi
 
