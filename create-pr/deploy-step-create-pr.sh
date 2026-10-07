@@ -54,6 +54,9 @@ IMAGE_TAG="${11}"
 # The image repository suffix
 IMAGE_REPO_SUFFIX="${12}"
 
+# The image repository suffix
+CREATED_PR_NUMBER_FILE="${13}"
+
 debug "Deploying with parameters:"
 debug "  REPO_URL=${REPO_URL}"
 debug "  REPO_SHORT_NAME=${REPO_SHORT_NAME}"
@@ -67,6 +70,7 @@ debug "  IMAGE_REGISTRY=${IMAGE_REGISTRY}"
 debug "  IMAGE_REPO_PREFIX=${IMAGE_REPO_PREFIX}"
 debug "  IMAGE_TAG=${IMAGE_TAG}"
 debug "  IMAGE_REPO_SUFFIX=${IMAGE_REPO_SUFFIX}"
+debug "  CREATED_PR_NUMBER_FILE=${CREATED_PR_NUMBER_FILE}"
 
 FULL_IMAGE_NAME="${IMAGE_REGISTRY}${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}:${IMAGE_TAG}"
 PR_BRANCH="${IMAGE_REPO_PREFIX}${IMAGE_REPO_SUFFIX}-${IMAGE_TAG}"
@@ -124,7 +128,8 @@ PULL_REQUEST_DATA='{
   "base": "'"${REPO_BRANCH}"'"
 }'
 
-curl \
+CREATE_PR_RESPONSE="$(
+  curl \
   --silent \
   --show-error \
   --fail \
@@ -134,3 +139,8 @@ curl \
   --header "X-GitHub-Api-Version: 2022-11-28" \
   --data-binary "${PULL_REQUEST_DATA}"  \
   "https://api.github.com/repos/${REPO_SHORT_NAME}/pulls"
+)"
+
+info "Created PR with response: ${CREATE_PR_RESPONSE}"
+
+echo "${CREATE_PR_RESPONSE}" | jq -re '.number' > "${CREATED_PR_NUMBER_FILE}"
