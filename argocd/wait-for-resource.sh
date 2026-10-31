@@ -17,30 +17,47 @@ wait-for-resource() {
   kind="$(kubectl get -f "${resource_path}" -o "jsonpath={.kind}")"
   case "${kind}" in
     Rollout)
-      info "Waiting for rollout"
+      info "Waiting for rollout version"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.metadata.labels['app\.kubernetes\.io/version']}=${new_tag}"
       info "Rollout is at version: ${new_tag}"
 
-      num_replicas="$(kubectl get -f "${resource_path}" -o "jsonpath={.spec.replicas}")"
+      info "Waiting for rollout generation"
+      generation="$(kubectl get -f "${resource_path}" -o "jsonpath={.metadata.generation}")"
+      kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.observedGeneration}=${generation}"
+      info "Rollout is at generation: ${generation}"
+
+      info "Waiting for rollout to be Healthy"
+      kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.phase}=Healthy"
+      info "Rollout is Healthy"
+
       info "Waiting for ${num_replicas} replicas"
+      num_replicas="$(kubectl get -f "${resource_path}" -o "jsonpath={.spec.replicas}")"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.updatedReplicas}=${num_replicas}"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.readyReplicas}=${num_replicas}"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.availableReplicas}=${num_replicas}"
-      kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.phase}=Healthy"
+      info "Rollout replicas are up"
+
       info "Rollout completed"
       return 0
       ;;
 
     Deployment)
-      info "Waiting for deployment"
+      info "Waiting for deployment version"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.metadata.labels['app\.kubernetes\.io/version']}=${new_tag}"
       info "Deployment is at version: ${new_tag}"
 
-      num_replicas="$(kubectl get -f "${resource_path}" -o "jsonpath={.spec.replicas}")"
+      info "Waiting for deployment generation"
+      generation="$(kubectl get -f "${resource_path}" -o "jsonpath={.metadata.generation}")"
+      kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.observedGeneration}=${generation}"
+      info "Deployment is at generation: ${generation}"
+
       info "Waiting for ${num_replicas} replicas"
+      num_replicas="$(kubectl get -f "${resource_path}" -o "jsonpath={.spec.replicas}")"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.updatedReplicas}=${num_replicas}"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.readyReplicas}=${num_replicas}"
       kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.status.availableReplicas}=${num_replicas}"
+      info "Deployment replicas are up"
+
       info "Deployment completed"
       return 0
       ;;
