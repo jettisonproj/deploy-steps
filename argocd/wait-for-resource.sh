@@ -72,7 +72,9 @@ wait-for-resource() {
       ;;
 
     AnalysisTemplate)
-      info "Skipping waiting for AnalysisTemplate"
+      info "Waiting for analysis template version: ${new_tag}"
+      kubectl wait -f "${resource_path}" --timeout=-1s --for=jsonpath="{.metadata.labels['app\.kubernetes\.io/version']}=${new_tag}"
+      info "AnalysisTemplate is at version: ${new_tag}"
       return 0
       ;;
 
