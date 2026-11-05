@@ -86,25 +86,6 @@ debug "Derived parameters:"
 debug "  FULL_IMAGE_NAME=${FULL_IMAGE_NAME}"
 debug "  FULL_TEST_IMAGE_NAME=${FULL_TEST_IMAGE_NAME}"
 
-# Skip if the ArgoCD application is paused
-info "Checking if the ArgoCD application is paused"
-ARGOCD_APP_ENABLED_STATUS="$(
-  curl \
-  --silent \
-  --show-error \
-  --fail \
-  "http://jettison-api-service.jettisonproj:2846/api/v1/namespaces/${ARGOCD_APP_NAMESPACE}/applications/${ARGOCD_APP_NAME}" \
-  | jq -r '.spec.syncPolicy.automated.enabled'
-)"
-
-if [[ "${ARGOCD_APP_ENABLED_STATUS}" == true ]]; then
-  info "ArgoCD application is enabled. Continuing"
-else
-  warn "ArgoCD application is NOT enabled. Setting Skipped in status file"
-  echo "Skipped" > "${STATUS_FILE}"
-  exit 0
-fi
-
 # Clone the repo
 info "Cloning the repo"
 git clone --depth 1 --branch "${REPO_BRANCH}" --single-branch "${REPO_URL}" /repo
@@ -162,6 +143,25 @@ ${IMAGE_TAG}"
 NEW_REPO_URL="${REPO_URL/github.com/${APP_USER_NAME}:${GH_ACCESS_TOKEN}@github.com}"
 git remote set-url origin "${NEW_REPO_URL}"
 git-push "${REPO_BRANCH}"
+
+# Skip the sync if the ArgoCD application is paused
+info "Checking if the ArgoCD application is paused"
+ARGOCD_APP_ENABLED_STATUS="$(
+  curl \
+  --silent \
+  --show-error \
+  --fail \
+  "http://jettison-api-service.jettisonproj:2846/api/v1/namespaces/${ARGOCD_APP_NAMESPACE}/applications/${ARGOCD_APP_NAME}" \
+  | jq -r '.spec.syncPolicy.automated.enabled'
+)"
+
+if [[ "${ARGOCD_APP_ENABLED_STATUS}" == true ]]; then
+  info "ArgoCD application is enabled. Continuing"
+else
+  warn "ArgoCD application is NOT enabled. Setting Skipped in status file"
+  echo "Skipped" > "${STATUS_FILE}"
+  exit 0
+fi
 
 # Sync the ArgoCD application
 info "Syncing the ArgoCD application"
