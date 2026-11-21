@@ -244,10 +244,16 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		)
 	}
 
+	buildkitdEnviron, err := getBuildkitdEnviron()
+	if err != nil {
+		return fmt.Errorf("Error getting buildkitd environ for pr: %s", err)
+	}
+
 	slog.Info(fmt.Sprintf(
-		"Starting test results image build for pr using %s with args %s",
+		"Starting test results image build for pr using %s with args %s and environ %s",
 		BUILDCTL_PATH,
 		buildTestResultsImgArgs,
+		buildkitdEnviron,
 	))
 
 	buildTestResultsImgCmd := exec.Cmd{
@@ -255,11 +261,6 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		Args:   buildTestResultsImgArgs,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}
-
-	buildkitdEnviron, err := getBuildkitdEnviron()
-	if err != nil {
-		return fmt.Errorf("Error getting buildkitd environ for pr: %s", err)
 	}
 
 	buildTestResultsImgCmd.Env = append(
@@ -287,9 +288,10 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 	})
 
 	slog.Info(fmt.Sprintf(
-		"Starting integration test image build for pr using %s with args %s",
+		"Starting integration test image build for pr using %s with args %s and environ %s",
 		BUILDCTL_PATH,
 		buildTestImgArgs,
+		buildkitdEnviron,
 	))
 
 	buildTestImgCmd := exec.Cmd{
@@ -311,9 +313,10 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 
 	// Build the PR image
 	slog.Info(fmt.Sprintf(
-		"Starting image build for PR using %s with args %s",
+		"Starting image build for PR using %s with args %s and environ %s",
 		BUILDCTL_PATH,
 		baseBuildArgs,
+		buildkitdEnviron,
 	))
 
 	buildImgCmd := exec.Cmd{
@@ -457,10 +460,16 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		)
 	}
 
+	buildkitdEnviron, err := getBuildkitdEnviron()
+	if err != nil {
+		return fmt.Errorf("Error getting buildkitd environ for commit: %s", err)
+	}
+
 	slog.Info(fmt.Sprintf(
-		"Starting test results image build for commit using %s with args %s",
+		"Starting test results image build for commit using %s with args %s and environ %s",
 		BUILDCTL_PATH,
 		buildTestResultsImgArgs,
+		buildkitdEnviron,
 	))
 
 	buildTestResultsImgCmd := exec.Cmd{
@@ -468,11 +477,6 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		Args:   buildTestResultsImgArgs,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}
-
-	buildkitdEnviron, err := getBuildkitdEnviron()
-	if err != nil {
-		return fmt.Errorf("Error getting buildkitd environ for commit: %s", err)
 	}
 
 	buildTestResultsImgCmd.Env = append(
@@ -509,9 +513,10 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 	})
 
 	slog.Info(fmt.Sprintf(
-		"Starting integration test image build for commit using %s with args %s",
+		"Starting integration test image build for commit using %s with args %s and environ %s",
 		BUILDCTL_PATH,
 		buildTestImgArgs,
+		buildkitdEnviron,
 	))
 
 	buildTestImgCmd := exec.Cmd{
@@ -544,9 +549,10 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 	})
 
 	slog.Info(fmt.Sprintf(
-		"Starting image build for commit using %s with args %s",
+		"Starting image build for commit using %s with args %s and environ %s",
 		BUILDCTL_PATH,
 		buildImgArgs,
+		buildkitdEnviron,
 	))
 
 	buildImgCmd := exec.Cmd{
