@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/gofrs/flock"
 	"github.com/lmittmann/tint"
 	"github.com/spf13/cobra"
 )
@@ -23,6 +24,14 @@ const (
 	BUILDCTL_PATH = "/usr/bin/buildctl-daemonless.sh"
 	// Name of the buildctl executable
 	BUILDCTL_NAME = "buildctl-daemonless.sh"
+	// Env var name for buildkitd flags
+	BUILDKITD_FLAGS_ENV_VAR = "BUILDKITD_FLAGS"
+	// Template for the buildkitd root
+	BUILDKITD_ROOT_TEMPLATE = "/home/user/.local/share/buildkit-%d"
+	// Name of the buildkitd lock file
+	BUILDKITD_LOCK_NAME = "buildkitd.lock"
+	// Max number of buildkitd roots to allow
+	MAX_BUILDKITD_ROOTS = 10
 	// String written to the status-path when the image build is skipped
 	SKIPPED_STATUS = "Skipped"
 	// Name of output tar file for the test result artifacts
@@ -247,6 +256,17 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
+
+	buildkitdEnviron, err := getBuildkitdEnviron()
+	if err != nil {
+		return fmt.Errorf("Error getting buildkitd environ for pr: %s", err)
+	}
+
+	buildTestResultsImgCmd.Env = append(
+		buildTestResultsImgCmd.Environ(),
+		buildkitdEnviron,
+	)
+
 	err = buildTestResultsImgCmd.Run()
 	if err != nil {
 		return fmt.Errorf("Test results image build for pr failed: %s", err)
@@ -278,9 +298,15 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
+
+	buildTestImgCmd.Env = append(
+		buildTestImgCmd.Environ(),
+		buildkitdEnviron,
+	)
+
 	err = buildTestImgCmd.Run()
 	if err != nil {
-		return fmt.Errorf("Test image build for pr failed: %s", err)
+		return fmt.Errorf("Integration test image build for pr failed: %s", err)
 	}
 
 	// Build the PR image
@@ -296,6 +322,12 @@ func handlePrCmd(cmd *cobra.Command, args []string) error {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
+
+	buildImgCmd.Env = append(
+		buildImgCmd.Environ(),
+		buildkitdEnviron,
+	)
+
 	err = buildImgCmd.Run()
 	if err != nil {
 		return fmt.Errorf("Image build for pr failed: %s", err)
@@ -437,6 +469,17 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
+
+	buildkitdEnviron, err := getBuildkitdEnviron()
+	if err != nil {
+		return fmt.Errorf("Error getting buildkitd environ for commit: %s", err)
+	}
+
+	buildTestResultsImgCmd.Env = append(
+		buildTestResultsImgCmd.Environ(),
+		buildkitdEnviron,
+	)
+
 	err = buildTestResultsImgCmd.Run()
 	if err != nil {
 		return fmt.Errorf("Test results image build for commit failed: %s", err)
@@ -477,9 +520,15 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
+
+	buildTestImgCmd.Env = append(
+		buildTestImgCmd.Environ(),
+		buildkitdEnviron,
+	)
+
 	err = buildTestImgCmd.Run()
 	if err != nil {
-		return fmt.Errorf("Test image build for commit failed: %s", err)
+		return fmt.Errorf("Integration test image build for commit failed: %s", err)
 	}
 
 	// Build the commit image
@@ -506,6 +555,12 @@ func handleCommitCmd(cmd *cobra.Command, args []string) error {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}
+
+	buildImgCmd.Env = append(
+		buildImgCmd.Environ(),
+		buildkitdEnviron,
+	)
+
 	err = buildImgCmd.Run()
 	if err != nil {
 		return fmt.Errorf("Image build for commit failed: %s", err)
@@ -580,6 +635,51 @@ func untar(tarPath string, targetDir string) error {
 			}
 		}
 	}
+}
+
+func getBuildkitdEnviron() (string, error) {
+	buildkitdRoot, err := getBuildkitdRoot()
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf(
+		"%s=--oci-worker-no-process-sandbox --root %s",
+		BUILDKITD_FLAGS_ENV_VAR,
+		buildkitdRoot,
+	), nil
+}
+
+// Get an unused buildkitd root by checking for file locks. See:
+// https://github.com/moby/buildkit/blob/master/cmd/buildkitd/main.go
+func getBuildkitdRoot() (string, error) {
+	for i := 1; i < MAX_BUILDKITD_ROOTS; i += 1 {
+
+		buildkitdRoot := fmt.Sprintf(BUILDKITD_ROOT_TEMPLATE, i)
+		if err := os.MkdirAll(buildkitdRoot, 0755); err != nil {
+			return "", fmt.Errorf("Failed to create buildkitd root: %s", err)
+		}
+
+		buildkitdLockPath := filepath.Join(buildkitdRoot, BUILDKITD_LOCK_NAME)
+
+		buildkitdLock := flock.New(buildkitdLockPath)
+		isBuildkitdLocked, err := buildkitdLock.TryLock()
+
+		if err != nil {
+			return "", fmt.Errorf("Failed to lock %s: %s", buildkitdLockPath, err)
+		}
+
+		if isBuildkitdLocked {
+			buildkitdLock.Unlock()
+			os.RemoveAll(buildkitdLockPath)
+			return buildkitdRoot, nil
+		}
+	}
+
+	return "", fmt.Errorf(
+		"Reached the max number of buildkitd build roots while creating %s",
+		fmt.Sprintf(BUILDKITD_ROOT_TEMPLATE, MAX_BUILDKITD_ROOTS),
+	)
 }
 
 func setupLogger() {
